@@ -589,16 +589,46 @@
       </div>
 
       <!-- Barra de Configuração Rápida do Cliente (Opcional) -->
-      <div class="px-6 py-2.5 bg-slate-100/70 border-b border-slate-200 flex flex-wrap items-center gap-3 no-print text-xs">
-        <div class="flex items-center gap-1.5 flex-1 min-w-[200px]">
-          <span class="text-slate-500 font-medium">Cliente:</span>
-          <input type="text" id="reportClientName" placeholder="Nome do Cliente (opcional)" oninput="updateReportPreview()"
-            class="w-full px-2.5 py-1 text-xs bg-white border border-slate-300 rounded-lg outline-none focus:border-accent-600">
+      <div class="px-6 py-3 bg-slate-100/80 border-b border-slate-200 no-print text-xs space-y-2.5">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+          <div class="flex items-center gap-1.5 sm:col-span-2">
+            <span class="text-slate-600 font-semibold shrink-0 w-16 sm:w-auto">Cliente:</span>
+            <input type="text" id="reportClientName" placeholder="Nome completo ou Razão Social" oninput="updateReportPreview()"
+              class="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg outline-none focus:border-accent-600">
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="text-slate-600 font-semibold shrink-0 w-16 sm:w-auto">WhatsApp:</span>
+            <input type="text" id="reportClientPhone" placeholder="(00) 00000-0000" oninput="updateReportPreview()"
+              class="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg outline-none focus:border-accent-600">
+          </div>
         </div>
-        <div class="flex items-center gap-1.5 flex-1 min-w-[160px]">
-          <span class="text-slate-500 font-medium">WhatsApp:</span>
-          <input type="text" id="reportClientPhone" placeholder="(00) 00000-0000" oninput="updateReportPreview()"
-            class="w-full px-2.5 py-1 text-xs bg-white border border-slate-300 rounded-lg outline-none focus:border-accent-600">
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+          <div class="flex items-center gap-1.5">
+            <span class="text-slate-600 font-semibold shrink-0 w-16 sm:w-auto">CPF/CNPJ:</span>
+            <input type="text" id="reportClientDoc" placeholder="000.000.000-00" oninput="updateReportPreview()"
+              class="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg outline-none focus:border-accent-600">
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="text-slate-600 font-semibold shrink-0 w-16 sm:w-auto">CEP:</span>
+            <input type="text" id="reportClientCep" placeholder="00000-000" oninput="updateReportPreview()"
+              class="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg outline-none focus:border-accent-600">
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="text-slate-600 font-semibold shrink-0">Nota Fiscal?</span>
+            <select id="reportClientInvoice" onchange="updateReportPreview()"
+              class="w-full px-2.5 py-1.5 text-xs font-semibold bg-white border border-slate-300 rounded-lg outline-none focus:border-accent-600">
+              <option value="[  ] Sim   [  ] Não">Em branco (marcar)</option>
+              <option value="Sim">Sim</option>
+              <option value="Não">Não</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-1.5">
+          <span class="text-slate-600 font-semibold shrink-0 w-16 sm:w-auto">Endereço:</span>
+          <input type="text" id="reportClientAddress" placeholder="Rua, número, complemento, bairro, cidade - UF" oninput="updateReportPreview()"
+            class="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg outline-none focus:border-accent-600">
         </div>
       </div>
 
@@ -625,16 +655,43 @@
           </div>
 
           <!-- Dados do Cliente e Produção -->
-          <div class="grid grid-cols-2 gap-4 text-xs bg-slate-50 p-4 rounded-2xl border border-slate-200/80">
-            <div>
-              <span class="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Dados do Cliente</span>
-              <div class="font-bold text-slate-800" id="repDisplayClient">Cliente Balcão</div>
-              <div class="text-slate-500 text-[11px]" id="repDisplayPhone">Sem contato informado</div>
+          <div class="text-xs bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-3">
+            <div class="flex items-center justify-between border-b border-slate-200/80 pb-2">
+              <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Dados do Cliente & Faturamento</span>
+              <div class="text-right">
+                <span class="text-[10px] uppercase font-bold text-slate-400 mr-1">Estampa:</span>
+                <span class="font-bold text-slate-800" id="repDisplayTechnique">DTF Digital • Só Frente</span>
+                <span class="text-slate-500 text-[11px] ml-1">(<span id="repDisplayPrintSize">Formato A4</span>)</span>
+              </div>
             </div>
-            <div>
-              <span class="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Especificação da Estampa</span>
-              <div class="font-bold text-slate-800" id="repDisplayTechnique">DTF Digital • Só Frente</div>
-              <div class="text-slate-500 text-[11px]" id="repDisplayPrintSize">Formato A4</div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-[11px]">
+              <div>
+                <span class="text-slate-400 font-semibold">Cliente:</span>
+                <span class="font-bold text-slate-900 ml-1" id="repDisplayClient">Cliente Balcão</span>
+              </div>
+              <div>
+                <span class="text-slate-400 font-semibold">WhatsApp:</span>
+                <span class="font-semibold text-slate-800 ml-1" id="repDisplayPhone">Não informado</span>
+              </div>
+              <div>
+                <span class="text-slate-400 font-semibold">CPF ou CNPJ:</span>
+                <span class="font-semibold text-slate-800 ml-1" id="repDisplayDoc">Não informado</span>
+              </div>
+              <div>
+                <span class="text-slate-400 font-semibold">Vai querer nota fiscal?</span>
+                <span class="font-bold text-slate-900 ml-1" id="repDisplayInvoice">Não</span>
+              </div>
+              <div class="sm:col-span-2 flex flex-wrap justify-between gap-2 pt-0.5 border-t border-slate-200/60">
+                <div class="flex-1 min-w-[200px]">
+                  <span class="text-slate-400 font-semibold">Endereço:</span>
+                  <span class="font-semibold text-slate-800 ml-1" id="repDisplayAddress">Não informado</span>
+                </div>
+                <div>
+                  <span class="text-slate-400 font-semibold">CEP:</span>
+                  <span class="font-semibold text-slate-800 ml-1" id="repDisplayCep">Não informado</span>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -1868,11 +1925,19 @@
     }
 
     function updateReportPreview() {
-      const clientName = document.getElementById('reportClientName').value.trim() || 'Cliente Balcão';
-      const clientPhone = document.getElementById('reportClientPhone').value.trim() || 'Não informado';
+      const clientName = document.getElementById('reportClientName').value.trim() || '________________________';
+      const clientPhone = document.getElementById('reportClientPhone').value.trim() || '________________________';
+      const clientDoc = document.getElementById('reportClientDoc').value.trim() || '________________________';
+      const clientAddress = document.getElementById('reportClientAddress').value.trim() || '________________________________________________';
+      const clientCep = document.getElementById('reportClientCep').value.trim() || '____________';
+      const clientInvoice = document.getElementById('reportClientInvoice').value || 'Não';
 
       document.getElementById('repDisplayClient').textContent = clientName;
       document.getElementById('repDisplayPhone').textContent = clientPhone;
+      document.getElementById('repDisplayDoc').textContent = clientDoc;
+      document.getElementById('repDisplayAddress').textContent = clientAddress;
+      document.getElementById('repDisplayCep').textContent = clientCep;
+      document.getElementById('repDisplayInvoice').textContent = clientInvoice;
 
       const now = new Date();
       document.getElementById('repBudgetDate').textContent = now.toLocaleDateString('pt-BR');
