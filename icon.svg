@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#15803d"/>
+      <stop offset="100%" stop-color="#10b981"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <!-- T-shirt / Calculator stylized icon -->
+  <path d="M164 120h184l56 64-44 44-32-28v192H184V200l-32 28-44-44 56-64z" fill="#ffffff" opacity="0.18"/>
+  <rect x="146" y="106" width="220" height="300" rx="36" fill="#ffffff"/>
+  <rect x="174" y="136" width="164" height="68" rx="16" fill="#0f172a"/>
+  <text x="322" y="183" font-family="Arial, sans-serif" font-weight="bold" font-size="38" fill="#4ade80" text-anchor="end">R$ 19,50</text>
+  <!-- Keypad buttons -->
+  <rect x="174" y="228" width="44" height="44" rx="10" fill="#e2e8f0"/>
+  <rect x="234" y="228" width="44" height="44" rx="10" fill="#e2e8f0"/>
+  <rect x="294" y="228" width="44" height="44" rx="10" fill="#dcfce7"/>
+  <rect x="174" y="286" width="44" height="44" rx="10" fill="#e2e8f0"/>
+  <rect x="234" y="286" width="44" height="44" rx="10" fill="#e2e8f0"/>
+  <rect x="294" y="286" width="44" height="98" rx="10" fill="#16a34a"/>
+  <rect x="174" y="344" width="104" height="40" rx="10" fill="#e2e8f0"/>
+</svg>

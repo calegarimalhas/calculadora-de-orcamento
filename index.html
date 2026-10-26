@@ -1,0 +1,2415 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Calculadora de Orçamento | Estamparia & Camisetas</title>
+  <!-- Configuração PWA (Instalação como Aplicativo no Android / iOS / PC) -->
+  <meta name="theme-color" content="#16a34a">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Orçamentos">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- html2canvas para gerar Imagem do Relatório -->
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <!-- Arquivo externo de preços (facilmente editável no Bloco de Notas) -->
+  <script src="tabela-precos.js"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#f0fdf4',
+              100: '#dcfce7',
+              200: '#bbf7d0',
+              500: '#22c55e',
+              600: '#16a34a',
+              700: '#15803d',
+              900: '#14532d',
+            },
+            accent: {
+              50: '#eff6ff',
+              100: '#dbeafe',
+              500: '#3b82f6',
+              600: '#2563eb',
+              700: '#1d4ed8',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+    .tap-highlight-transparent {
+      -webkit-tap-highlight-color: transparent;
+    }
+    input[type=number]::-webkit-inner-spin-button,
+    input[type=number]::-webkit-outer-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    input[type=number] {
+      -moz-appearance: textfield;
+    }
+    .selection-ring {
+      transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* Print styles para gerar PDF impecável em folha A4 com cores preservadas */
+    @media print {
+      * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      body * {
+        visibility: hidden !important;
+      }
+      #reportPrintArea, #reportPrintArea * {
+        visibility: visible !important;
+      }
+      #reportPrintArea {
+        position: absolute !important;
+        left: 0 !important;
+        top: 0 !important;
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 20px !important;
+        background: white !important;
+        box-shadow: none !important;
+        border: none !important;
+      }
+      .no-print {
+        display: none !important;
+      }
+    }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 antialiased font-sans min-h-screen pb-28 md:pb-12 tap-highlight-transparent">
+
+  <!-- TOP HEADER -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm no-print">
+    <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-emerald-400 flex items-center justify-center text-white shadow-md shadow-emerald-500/20">
+          <i data-lucide="calculator" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <h1 class="text-base md:text-xl font-bold tracking-tight text-slate-900 leading-tight">Calculadora de Orçamento</h1>
+          <p class="text-xs text-slate-500 font-medium">Múltiplos modelos, tamanhos, cores oficiais & PDF/Imagem</p>
+        </div>
+      </div>
+      <div class="flex items-center space-x-1.5 sm:space-x-2">
+        <button id="btnInstallPwa" onclick="handleInstallPwaClick()" class="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition-all shadow-sm">
+          <i data-lucide="smartphone" class="w-3.5 h-3.5"></i>
+          <span>Instalar App</span>
+        </button>
+        <button onclick="openEditPricesModal()" class="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-semibold rounded-lg transition-colors border border-amber-200 shadow-sm">
+          <i data-lucide="sliders-horizontal" class="w-3.5 h-3.5 text-amber-600"></i>
+          <span class="hidden md:inline">Ajustar Preços</span>
+          <span class="md:hidden">Preços</span>
+        </button>
+        <button onclick="openTableModal()" class="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition-colors border border-slate-200">
+          <i data-lucide="table" class="w-4 h-4 text-slate-500"></i>
+          <span class="hidden sm:inline">Ver Tabela</span>
+        </button>
+        <button onclick="resetCalculator()" title="Restaurar Padrão" class="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors">
+          <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN CONTAINER -->
+  <main class="max-w-5xl mx-auto px-4 py-6 no-print">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+      <!-- LEFT COLUMN: SELETORES E CONTROLES (7 colunas no Desktop) -->
+      <div class="lg:col-span-7 space-y-6">
+
+        <!-- 1. TIPO DE APLICAÇÃO -->
+        <section class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200/80">
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center space-x-2">
+              <span class="w-6 h-6 rounded-full bg-accent-100 text-accent-700 font-bold text-xs flex items-center justify-center">1</span>
+              <label class="text-sm font-bold text-slate-800">Tipo de Aplicação</label>
+            </div>
+            <span class="text-xs font-medium text-slate-400">Obrigatório</span>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3" id="appTypeSelector">
+            <!-- Sublimação Card -->
+            <button type="button" onclick="selectAppType('sublimacao')" id="btn-app-sublimacao"
+              class="selection-ring group relative p-4 rounded-xl border-2 text-left cursor-pointer transition-all flex flex-col justify-between border-accent-600 bg-accent-50/50 shadow-sm">
+              <div class="flex items-center justify-between mb-2">
+                <span class="p-2 rounded-lg bg-accent-600 text-white shadow-sm">
+                  <i data-lucide="sparkles" class="w-5 h-5"></i>
+                </span>
+                <span class="status-indicator w-5 h-5 rounded-full bg-accent-600 text-white flex items-center justify-center text-xs">
+                  <i data-lucide="check" class="w-3.5 h-3.5"></i>
+                </span>
+              </div>
+              <div>
+                <h3 class="font-bold text-slate-900 group-hover:text-accent-600">Sublimação</h3>
+                <p class="text-xs text-slate-500 mt-0.5">Tecidos claros / Poliéster</p>
+              </div>
+            </button>
+
+            <!-- DTF Card -->
+            <button type="button" onclick="selectAppType('dtf')" id="btn-app-dtf"
+              class="selection-ring group relative p-4 rounded-xl border-2 border-slate-200 bg-white hover:border-slate-300 text-left cursor-pointer transition-all flex flex-col justify-between">
+              <div class="flex items-center justify-between mb-2">
+                <span class="p-2 rounded-lg bg-slate-100 text-slate-600 group-hover:bg-accent-100 group-hover:text-accent-600">
+                  <i data-lucide="printer" class="w-5 h-5"></i>
+                </span>
+                <span class="status-indicator w-5 h-5 rounded-full border border-slate-300 hidden items-center justify-center text-xs"></span>
+              </div>
+              <div>
+                <h3 class="font-bold text-slate-900 group-hover:text-accent-600">DTF Digital</h3>
+                <p class="text-xs text-slate-500 mt-0.5">Algodão, cores escuras, alta definição</p>
+              </div>
+            </button>
+          </div>
+        </section>
+
+        <!-- 2. POSIÇÃO DA APLICAÇÃO (SÓ FRENTE / FRENTE E COSTAS) -->
+        <section class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200/80">
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center space-x-2">
+              <span class="w-6 h-6 rounded-full bg-accent-100 text-accent-700 font-bold text-xs flex items-center justify-center">2</span>
+              <label class="text-sm font-bold text-slate-800">Posição da Estampa</label>
+            </div>
+            <span class="text-xs font-medium text-slate-400">Obrigatório</span>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3" id="printPositionSelector">
+            <button type="button" onclick="selectPrintPosition('frente')" id="btn-pos-frente"
+              class="selection-ring p-3.5 rounded-xl border-2 border-accent-600 bg-accent-50/50 flex items-center space-x-3 text-left transition-all">
+              <div class="w-8 h-8 rounded-lg bg-accent-600 text-white flex items-center justify-center shrink-0">
+                <i data-lucide="square" class="w-4 h-4"></i>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="font-bold text-xs md:text-sm text-slate-900 leading-tight">Só Frente ou Costas</div>
+                <div class="text-[11px] text-slate-500">1 lado estampado</div>
+              </div>
+            </button>
+
+            <button type="button" onclick="selectPrintPosition('frente_costas')" id="btn-pos-frente_costas"
+              class="selection-ring p-3.5 rounded-xl border-2 border-slate-200 bg-white hover:border-slate-300 flex items-center space-x-3 text-left transition-all">
+              <div class="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center shrink-0">
+                <i data-lucide="copy" class="w-4 h-4"></i>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="font-bold text-xs md:text-sm text-slate-900 leading-tight">Frente e Costas</div>
+                <div class="text-[11px] text-slate-500">2 lados estampados</div>
+              </div>
+            </button>
+          </div>
+        </section>
+
+        <!-- 3. TAMANHO DA ESTAMPA (A4 vs A3) -->
+        <section id="printSizeSection" class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200/80 transition-all">
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center space-x-2">
+              <span class="w-6 h-6 rounded-full bg-accent-100 text-accent-700 font-bold text-xs flex items-center justify-center">3</span>
+              <label class="text-sm font-bold text-slate-800">Tamanho da Estampa</label>
+            </div>
+            <span id="dtfRequiredBadge" class="hidden text-xs font-semibold px-2 py-0.5 rounded bg-amber-100 text-amber-800">Requerido no DTF</span>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3" id="printSizeSelector">
+            <button type="button" onclick="selectPrintSize('A4')" id="btn-size-A4"
+              class="selection-ring p-3.5 rounded-xl border-2 border-accent-600 bg-accent-50/50 flex items-center space-x-3 text-left transition-all">
+              <div class="w-8 h-8 rounded-lg bg-accent-600 text-white flex items-center justify-center shrink-0 font-bold text-xs">
+                A4
+              </div>
+              <div>
+                <div class="font-bold text-sm text-slate-900">Formato A4</div>
+                <div class="text-[11px] text-slate-500">Até 21 x 29 cm (Padrão)</div>
+              </div>
+            </button>
+
+            <button type="button" onclick="selectPrintSize('A3')" id="btn-size-A3"
+              class="selection-ring p-3.5 rounded-xl border-2 border-slate-200 bg-white hover:border-slate-300 flex items-center space-x-3 text-left transition-all">
+              <div class="w-8 h-8 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center shrink-0 font-bold text-xs">
+                A3
+              </div>
+              <div>
+                <div class="font-bold text-sm text-slate-900">Formato A3</div>
+                <div class="text-[11px] text-slate-500">Até 29 x 42 cm (Grande)</div>
+              </div>
+            </button>
+          </div>
+          <p id="sublimationSizeNotice" class="text-xs text-slate-400 mt-2 italic flex items-center gap-1">
+            <i data-lucide="info" class="w-3.5 h-3.5"></i> Na sublimação, os valores da tabela já incluem o tamanho padrão (A4).
+          </p>
+        </section>
+
+        <!-- 4. MODELO(S) DE CAMISETA (SELEÇÃO MÚLTIPLA!) -->
+        <section class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200/80">
+          <div class="flex items-center justify-between mb-1.5 flex-wrap gap-2">
+            <div class="flex items-center space-x-2">
+              <span class="w-6 h-6 rounded-full bg-accent-100 text-accent-700 font-bold text-xs flex items-center justify-center">4</span>
+              <label class="text-sm font-bold text-slate-800">Modelos de Camiseta no Pedido</label>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full" id="selectedModelsCountBadge">
+                Pode marcar mais de 1!
+              </span>
+              <button type="button" onclick="clearAllSelectedModels()" class="text-[11px] text-slate-400 hover:text-rose-600 font-semibold transition-colors">
+                Desmarcar todas
+              </button>
+            </div>
+          </div>
+
+          <p class="text-xs text-slate-500 mb-3">
+            Marque <strong>1 ou vários tipos juntos</strong> no mesmo pedido (ex: Camiseta + Baby Look + XG + Infantil).
+          </p>
+
+          <!-- Filtro rápido de categoria (renderizado dinamicamente conforme modelos disponíveis) -->
+          <div class="flex items-center space-x-1.5 overflow-x-auto pb-2 mb-3 text-xs" id="categoryFilterBar">
+          </div>
+
+          <!-- Grade de Modelos de Camisetas (Sem scroll interno apertado: visão limpa de todos os cards) -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5" id="shirtModelsContainer">
+            <!-- Inserido dinamicamente via JS -->
+          </div>
+        </section>
+
+        <!-- 5. QUANTIDADES, TAMANHOS E CORES DE CADA MODELO SELECIONADO -->
+        <section class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200/80">
+          <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+            <div class="flex items-center space-x-2">
+              <span class="w-6 h-6 rounded-full bg-accent-100 text-accent-700 font-bold text-xs flex items-center justify-center">5</span>
+              <label class="text-sm font-bold text-slate-800">Quantidades, Tamanhos & Cores</label>
+            </div>
+            <!-- Badge de Arte Fixa Obrigatória -->
+            <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold">
+              <i data-lucide="lock" class="w-3.5 h-3.5 text-emerald-600"></i>
+              <span>Arte Fixa: R$ 50,00</span>
+            </div>
+          </div>
+
+          <p class="text-xs text-slate-500 mb-4">
+            Informe a quantidade total de cada modelo (ou separe por tamanho <strong>P, M, G, GG</strong>) e marque as cores oficiais de cada peça.
+          </p>
+
+          <!-- Container com 1 Card para cada Modelo Selecionado -->
+          <div class="space-y-4" id="selectedModelsConfigContainer">
+            <!-- Inserido dinamicamente via JS -->
+          </div>
+
+          <!-- Alerta amigável quando pedido tem menos de 10 peças -->
+          <div id="minQtyWarning" class="hidden mt-4 p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs flex items-center gap-2 font-medium">
+            <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-600 shrink-0"></i>
+            <span>Lembrete: A tabela de preços padrão da empresa é calculada para pedidos <strong>acima de 10 peças</strong>.</span>
+          </div>
+
+          <!-- TOTAL GERAL DE PEÇAS & ARTE DILUÍDA -->
+          <div class="mt-4 p-3.5 rounded-xl bg-slate-900 text-white flex items-center justify-between">
+            <div>
+              <div class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Soma Geral do Pedido</div>
+              <div class="text-xl font-black text-white flex items-baseline gap-1.5">
+                <span id="displayTotalPieces">20</span>
+                <span class="text-xs font-medium text-slate-400" id="displayTotalModelsLabel">peças no total</span>
+              </div>
+            </div>
+            <div class="text-right">
+              <div class="text-[10px] text-emerald-400 font-bold">Arte Fixa Diluída (R$ 50)</div>
+              <div class="text-sm font-extrabold text-white" id="artPerPieceText">+ R$ 2,50 / peça</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 6. EXTRAS / OPCIONAIS (MÚLTIPLA ESCOLHA) -->
+        <section class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200/80">
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center space-x-2">
+              <span class="w-6 h-6 rounded-full bg-accent-100 text-accent-700 font-bold text-xs flex items-center justify-center">6</span>
+              <label class="text-sm font-bold text-slate-800">Extras & Opcionais</label>
+            </div>
+            <span class="text-xs font-normal text-slate-400">Soma direto por peça</span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <!-- Extra 1: Estampa nas Mangas -->
+            <div id="extra-card-mangas" class="selection-ring p-3.5 rounded-xl border-2 border-slate-200 bg-white hover:border-slate-300 transition-all">
+              <div class="flex items-center justify-between mb-1.5">
+                <span class="font-bold text-xs text-slate-900 flex items-center gap-1.5">
+                  <i data-lucide="tag" class="w-3.5 h-3.5 text-slate-400"></i> Mangas
+                </span>
+                <span class="text-[11px] font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded" id="badgePriceMangas">+R$ 5,00/cada</span>
+              </div>
+              <p class="text-[11px] text-slate-500 mb-2">Estampa em 1 ou 2 mangas</p>
+              <select id="selectMangas" onchange="updateCalculations()" class="w-full text-xs font-semibold bg-slate-50 border border-slate-200 rounded-lg p-2 outline-none focus:border-accent-600">
+                <option value="0">Nenhuma Manga (+R$ 0)</option>
+                <option value="1">1 Manga (+R$ 5,00 / pç)</option>
+                <option value="2">2 Mangas (+R$ 10,00 / pç)</option>
+              </select>
+            </div>
+
+            <!-- Extra 2: Gola e Punho Colorido -->
+            <label class="selection-ring p-3.5 rounded-xl border-2 border-slate-200 bg-white hover:border-slate-300 transition-all flex flex-col justify-between cursor-pointer" id="label-extra-gola">
+              <div>
+                <div class="flex items-center justify-between mb-1.5">
+                  <span class="font-bold text-xs text-slate-900 flex items-center gap-1.5">
+                    <i data-lucide="scissors" class="w-3.5 h-3.5 text-slate-400"></i> Gola & Punho
+                  </span>
+                  <span class="text-[11px] font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded" id="badgePriceGola">+R$ 3,00</span>
+                </div>
+                <p class="text-[11px] text-slate-500">Gola e punho colorida</p>
+              </div>
+              <div class="flex items-center justify-between pt-2 border-t border-slate-100 mt-2">
+                <span class="text-xs text-slate-500 font-medium">Incluir?</span>
+                <input type="checkbox" id="checkGolaPunho" onchange="updateCalculations()" class="w-4 h-4 text-accent-600 rounded focus:ring-accent-500 border-slate-300">
+              </div>
+            </label>
+
+            <!-- Extra 3: Batida a Mais / Estampa Extra -->
+            <label class="selection-ring p-3.5 rounded-xl border-2 border-slate-200 bg-white hover:border-slate-300 transition-all flex flex-col justify-between cursor-pointer" id="label-extra-batida">
+              <div>
+                <div class="flex items-center justify-between mb-1.5">
+                  <span class="font-bold text-xs text-slate-900 flex items-center gap-1.5">
+                    <i data-lucide="layers" class="w-3.5 h-3.5 text-slate-400"></i> Estampa Extra
+                  </span>
+                  <span class="text-[11px] font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded" id="badgePriceBatida">+R$ 4,00</span>
+                </div>
+                <p class="text-[11px] text-slate-500">Batida a + / logo extra</p>
+              </div>
+              <div class="flex items-center justify-between pt-2 border-t border-slate-100 mt-2">
+                <span class="text-xs text-slate-500 font-medium">Incluir?</span>
+                <input type="checkbox" id="checkBatidaExtra" onchange="updateCalculations()" class="w-4 h-4 text-accent-600 rounded focus:ring-accent-500 border-slate-300">
+              </div>
+            </label>
+          </div>
+        </section>
+
+      </div>
+
+
+      <!-- RIGHT COLUMN: RESULTADO & RESUMO DO ORÇAMENTO (5 colunas no Desktop, Sticky) -->
+      <div class="lg:col-span-5 lg:sticky lg:top-20 space-y-4">
+        
+        <!-- CARD PRINCIPAL DE VALOR -->
+        <div class="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950 text-white rounded-3xl p-6 shadow-xl border border-slate-800 relative overflow-hidden">
+          <!-- Background decoration -->
+          <div class="absolute -right-8 -bottom-8 w-40 h-40 bg-brand-500/10 rounded-full blur-2xl pointer-events-none"></div>
+          <div class="absolute -left-8 -top-8 w-40 h-40 bg-accent-500/10 rounded-full blur-2xl pointer-events-none"></div>
+
+          <div class="flex items-center justify-between mb-4">
+            <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-brand-500/20 text-brand-400 border border-brand-500/30">
+              <i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i> Orçamento em Tempo Real
+            </span>
+            <span class="text-xs text-slate-400" id="currentDateBadge">Hoje</span>
+          </div>
+
+          <!-- Destaque Principal: Adapta-se inteligentemente para 1 Modelo (Unitário em destaque) ou Múltiplos Modelos (Total + Lista Unitária) -->
+          <div id="singleModelHero" class="mb-4">
+            <div class="text-xs uppercase tracking-wider text-slate-400 font-semibold mb-0.5">Preço Unitário Final</div>
+            <div class="flex items-baseline space-x-1.5">
+              <span class="text-2xl font-bold text-slate-300">R$</span>
+              <span class="text-5xl font-extrabold tracking-tight text-white" id="displayHeroUnitPrice">19,50</span>
+              <span class="text-sm font-semibold text-slate-400">/ peça</span>
+            </div>
+          </div>
+
+          <!-- Caixa de Total Geral do Pedido -->
+          <div class="p-3.5 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between mb-5">
+            <div>
+              <div class="text-xs text-slate-400 font-medium">Valor Total (<span id="displayQtyBadge" class="text-white font-bold">20</span> peças)</div>
+              <div class="text-2xl font-extrabold text-brand-400 flex items-baseline gap-1 mt-0.5">
+                <span class="text-base">R$</span>
+                <span id="displayTotalPrice">390,00</span>
+              </div>
+            </div>
+            <div class="text-right">
+              <div class="text-[11px] text-slate-400">Arte Fixa Inclusa</div>
+              <div class="text-xs font-semibold text-slate-200">R$ 50,00</div>
+            </div>
+          </div>
+
+          <!-- Lista Detalhada de Preço Unitário por Modelo Selecionado -->
+          <div class="mb-5">
+            <div class="text-[11px] uppercase tracking-wider text-slate-400 font-bold mb-2 flex items-center justify-between">
+              <span>Valor Unitário por Modelo</span>
+              <span class="text-[10px] font-normal text-slate-500">Já com arte diluída</span>
+            </div>
+            <div id="summaryModelsBreakdownList" class="space-y-2 max-h-56 overflow-y-auto pr-1">
+              <!-- Linhas geradas via JS -->
+            </div>
+          </div>
+
+          <!-- Fórmula e Diluição Transparente -->
+          <div class="space-y-1.5 text-xs border-t border-slate-800 pt-3.5 mb-6">
+            <div class="flex justify-between text-slate-300 font-medium">
+              <span class="flex items-center gap-1.5">
+                <i data-lucide="palette" class="w-3.5 h-3.5 text-emerald-400"></i>
+                <span>Arte diluída (<span id="breakdownArtCalc">R$ 50 ÷ 20 pçs</span>)</span>
+              </span>
+              <span class="text-emerald-400 font-bold" id="breakdownArtPrice">+ R$ 2,50 /un</span>
+            </div>
+            <div id="breakdownExtrasRow" class="hidden flex justify-between text-slate-300 font-medium">
+              <span class="flex items-center gap-1.5">
+                <i data-lucide="plus-circle" class="w-3.5 h-3.5 text-amber-400"></i>
+                <span>Extras opcionais</span>
+              </span>
+              <span class="text-amber-300 font-bold" id="breakdownExtrasPrice">+ R$ 0,00 /un</span>
+            </div>
+            <div class="bg-slate-800/80 p-2.5 rounded-xl text-[11px] text-slate-300 font-mono flex items-center justify-between mt-2 border border-slate-700/50">
+              <span class="text-slate-400 shrink-0 mr-2">Cálculo:</span>
+              <span id="breakdownFormula" class="truncate">50 / 20 + 17,00 = R$ 19,50</span>
+            </div>
+          </div>
+
+          <!-- Botões de Ação Principais -->
+          <div class="space-y-2.5">
+            <!-- BOTÃO GERAR RELATÓRIO PDF / IMAGEM -->
+            <button type="button" onclick="openReportModal()"
+              class="w-full py-3.5 px-4 bg-gradient-to-r from-accent-600 to-indigo-600 hover:from-accent-700 hover:to-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-accent-900/30 flex items-center justify-center space-x-2 transition-all transform active:scale-[0.98]">
+              <i data-lucide="file-text" class="w-5 h-5"></i>
+              <span>Gerar Relatório (PDF / Imagem)</span>
+            </button>
+
+            <!-- BOTÃO COPIAR WHATSAPP -->
+            <button type="button" onclick="copyWhatsAppBudget()"
+              class="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl flex items-center justify-center space-x-2 transition-all">
+              <i data-lucide="share-2" class="w-4 h-4"></i>
+              <span>Copiar Texto para WhatsApp</span>
+            </button>
+
+            <button type="button" onclick="saveToHistory()"
+              class="w-full py-2.5 px-4 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-semibold text-xs rounded-xl flex items-center justify-center space-x-2 transition-all">
+              <i data-lucide="bookmark-plus" class="w-4 h-4"></i>
+              <span>Salvar Orçamento Recente</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- HISTÓRICO RÁPIDO DE ORÇAMENTOS -->
+        <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200/80" id="historyCard">
+          <div class="flex items-center justify-between mb-3">
+            <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+              <i data-lucide="history" class="w-4 h-4 text-slate-400"></i> Orçamentos Salvos
+            </h4>
+            <button onclick="clearHistory()" class="text-[11px] text-slate-400 hover:text-rose-600">Limpar</button>
+          </div>
+          <div id="historyList" class="space-y-2 max-h-52 overflow-y-auto pr-1">
+            <p class="text-xs text-slate-400 italic text-center py-3">Nenhum orçamento salvo ainda.</p>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </main>
+
+  <!-- BARRA INFERIOR FLUTUANTE NO MOBILE (Sticky Bar) -->
+  <div class="lg:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200 p-3 z-30 shadow-2xl no-print">
+    <div class="max-w-md mx-auto flex items-center justify-between gap-3">
+      <div>
+        <div class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Total (<span id="mobQtyText">20</span> pçs)</div>
+        <div class="text-2xl font-black text-slate-900 flex items-baseline">
+          <span class="text-sm font-bold text-slate-500 mr-0.5">R$</span>
+          <span id="mobTotalPrice">390,00</span>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <button onclick="openReportModal()" class="px-4 py-2.5 bg-accent-600 hover:bg-accent-700 text-white font-bold text-xs rounded-xl flex items-center space-x-1 shadow-md">
+          <i data-lucide="file-text" class="w-4 h-4"></i>
+          <span>Relatório</span>
+        </button>
+        <button onclick="copyWhatsAppBudget()" class="p-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-md" title="Copiar para WhatsApp">
+          <i data-lucide="share-2" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST DE NOTIFICAÇÃO -->
+  <div id="toastNotification" class="fixed top-5 right-5 z-50 transform translate-y-[-120%] opacity-0 transition-all duration-300 pointer-events-none no-print">
+    <div class="bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-2xl flex items-center space-x-3 border border-slate-800">
+      <div class="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+        <i data-lucide="check" class="w-4 h-4"></i>
+      </div>
+      <div>
+        <div class="text-xs font-bold" id="toastTitle">Copiado com Sucesso!</div>
+        <div class="text-[11px] text-slate-400" id="toastMessage">Texto pronto para colar no WhatsApp.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: RELATÓRIO DO ORÇAMENTO (PREVIEW, PDF E IMAGEM) -->
+  <div id="reportModal" class="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm hidden items-center justify-center p-3 md:p-6 overflow-y-auto">
+    <div class="bg-white rounded-3xl max-w-2xl w-full max-h-[95vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden">
+      
+      <!-- Top Action Bar (Não sai na impressão nem na imagem) -->
+      <div class="px-6 py-3.5 border-b border-slate-200 flex items-center justify-between bg-slate-50 no-print">
+        <div class="flex items-center space-x-2">
+          <div class="p-2 rounded-xl bg-slate-900 text-white">
+            <i data-lucide="file-check" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-slate-900 text-sm">Relatório Completo do Orçamento</h3>
+            <p class="text-[11px] text-slate-500">Pronto para exportar em PDF ou Imagem PNG</p>
+          </div>
+        </div>
+        <button onclick="closeReportModal()" class="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Barra de Configuração Rápida do Cliente (Opcional) -->
+      <div class="px-6 py-2.5 bg-slate-100/70 border-b border-slate-200 flex flex-wrap items-center gap-3 no-print text-xs">
+        <div class="flex items-center gap-1.5 flex-1 min-w-[200px]">
+          <span class="text-slate-500 font-medium">Cliente:</span>
+          <input type="text" id="reportClientName" placeholder="Nome do Cliente (opcional)" oninput="updateReportPreview()"
+            class="w-full px-2.5 py-1 text-xs bg-white border border-slate-300 rounded-lg outline-none focus:border-accent-600">
+        </div>
+        <div class="flex items-center gap-1.5 flex-1 min-w-[160px]">
+          <span class="text-slate-500 font-medium">WhatsApp:</span>
+          <input type="text" id="reportClientPhone" placeholder="(00) 00000-0000" oninput="updateReportPreview()"
+            class="w-full px-2.5 py-1 text-xs bg-white border border-slate-300 rounded-lg outline-none focus:border-accent-600">
+        </div>
+      </div>
+
+      <!-- ÁREA IMPRESSA / CAPTURADA COMO IMAGEM (DOCUMENTO DO ORÇAMENTO) -->
+      <div class="p-6 md:p-8 overflow-y-auto bg-white" id="reportPrintArea">
+        <div class="max-w-xl mx-auto space-y-6">
+
+          <!-- Header da Empresa -->
+          <div class="flex items-start justify-between border-b border-slate-200 pb-5">
+            <div>
+              <div class="flex items-center space-x-2 mb-1">
+                <div class="w-8 h-8 rounded-lg bg-slate-900 text-white flex items-center justify-center font-bold text-sm">
+                  👕
+                </div>
+                <h2 class="text-lg font-black text-slate-900 tracking-tight">ORÇAMENTO COMERCIAL</h2>
+              </div>
+              <p class="text-xs text-slate-500">Confecção & Estamparia Personalizada</p>
+            </div>
+            <div class="text-right">
+              <div class="text-xs font-mono font-bold text-slate-800" id="repBudgetNumber">#ORC-2026</div>
+              <div class="text-[11px] text-slate-400" id="repBudgetDate">26/10/2026</div>
+              <div class="text-[10px] text-emerald-600 font-semibold mt-0.5">Válido por 7 dias</div>
+            </div>
+          </div>
+
+          <!-- Dados do Cliente e Produção -->
+          <div class="grid grid-cols-2 gap-4 text-xs bg-slate-50 p-4 rounded-2xl border border-slate-200/80">
+            <div>
+              <span class="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Dados do Cliente</span>
+              <div class="font-bold text-slate-800" id="repDisplayClient">Cliente Balcão</div>
+              <div class="text-slate-500 text-[11px]" id="repDisplayPhone">Sem contato informado</div>
+            </div>
+            <div>
+              <span class="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Especificação da Estampa</span>
+              <div class="font-bold text-slate-800" id="repDisplayTechnique">DTF Digital • Só Frente</div>
+              <div class="text-slate-500 text-[11px]" id="repDisplayPrintSize">Formato A4</div>
+            </div>
+          </div>
+
+          <!-- TABELA DE MODELOS, TAMANHOS, CORES & PREÇOS -->
+          <div class="border border-slate-200 rounded-2xl overflow-hidden">
+            <table class="w-full text-xs text-left">
+              <thead class="bg-slate-900 text-white font-bold">
+                <tr>
+                  <th class="py-2.5 px-3">Modelo de Camiseta</th>
+                  <th class="py-2.5 px-3">Tamanhos & Cores</th>
+                  <th class="py-2.5 px-2 text-center">Qtd</th>
+                  <th class="py-2.5 px-3 text-right">Unitário</th>
+                  <th class="py-2.5 px-3 text-right">Subtotal</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100 font-medium" id="repItemsTableBody">
+                <!-- Inserido dinamicamente via JS -->
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Resumo de Extras e Arte -->
+          <div class="space-y-1.5 text-xs text-slate-600 border-t border-slate-200 pt-3">
+            <div class="flex justify-between">
+              <span>Arte Digital Fixa (Diluída igualmente no pedido):</span>
+              <span class="font-semibold text-slate-800" id="repArtSummary">R$ 50,00 (Inclusa nos unitários)</span>
+            </div>
+            <div id="repExtrasSummary" class="flex justify-between text-slate-500">
+            </div>
+          </div>
+
+          <!-- TOTAL GERAL DO ORÇAMENTO -->
+          <div class="p-4 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-700 text-white flex items-center justify-between shadow-md">
+            <div>
+              <div class="text-[11px] uppercase font-bold tracking-wider text-emerald-100">Total Geral do Pedido</div>
+              <div class="text-xs text-emerald-200">Soma de <span id="repTotalPiecesBadge" class="font-bold text-white">20</span> peças</div>
+            </div>
+            <div class="text-3xl font-black text-white flex items-baseline gap-1">
+              <span class="text-lg font-bold">R$</span>
+              <span id="repTotalOrderPrice">0,00</span>
+            </div>
+          </div>
+
+          <!-- Termos e Rodapé Comercial -->
+          <div class="text-[10px] text-slate-400 space-y-1 border-t border-slate-100 pt-3">
+            <p>• Prazo de confecção a combinar após confirmação e aprovação do layout.</p>
+            <p>• Orçamento com validade de 7 dias a partir da data de emissão.</p>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Modal Footer com Botões de Ação -->
+      <div class="px-6 py-4 border-t border-slate-200 bg-slate-50 flex flex-wrap items-center justify-between gap-3 no-print">
+        <button onclick="closeReportModal()" class="px-4 py-2 border border-slate-300 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-colors">
+          Fechar
+        </button>
+
+        <div class="flex items-center gap-2">
+          <button onclick="printReportPDF()"
+            class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl flex items-center space-x-1.5 transition-colors shadow-sm">
+            <i data-lucide="printer" class="w-4 h-4"></i>
+            <span>Baixar / Imprimir PDF</span>
+          </button>
+
+          <button onclick="downloadReportImage()" id="btnDownloadImage"
+            class="px-5 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs font-bold rounded-xl flex items-center space-x-1.5 transition-all shadow-md shadow-emerald-600/20">
+            <i data-lucide="image" class="w-4 h-4"></i>
+            <span>Baixar como Imagem (PNG)</span>
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- MODAL: AJUSTAR / EDITAR PREÇOS DA EMPRESA -->
+  <div id="editPricesModal" class="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm hidden items-center justify-center p-3 md:p-6 overflow-y-auto no-print">
+    <div class="bg-white rounded-3xl max-w-3xl w-full max-h-[92vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden">
+      <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-amber-50">
+        <div class="flex items-center space-x-2">
+          <div class="p-2 rounded-xl bg-amber-600 text-white">
+            <i data-lucide="sliders-horizontal" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-slate-900">Atualizar Preços Fixos da Empresa</h3>
+            <p class="text-xs text-slate-600">Altere os valores abaixo e salve para atualizar imediatamente toda a calculadora</p>
+          </div>
+        </div>
+        <button onclick="closeEditPricesModal()" class="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="p-6 overflow-y-auto space-y-6 text-xs">
+        <div class="border border-slate-200 rounded-2xl p-4 bg-slate-50">
+          <h4 class="font-bold text-slate-900 text-sm mb-3 flex items-center gap-1.5">
+            <i data-lucide="plus-circle" class="w-4 h-4 text-emerald-600"></i> Valores dos Opcionais / Extras (por peça)
+          </h4>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">Manga (por unidade):</label>
+              <div class="flex items-center border border-slate-300 rounded-lg bg-white px-2.5 py-1.5 focus-within:border-accent-600">
+                <span class="text-slate-400 font-bold mr-1">R$</span>
+                <input type="number" step="0.50" id="cfg_manga" class="w-full font-bold outline-none">
+              </div>
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">Gola e Punho:</label>
+              <div class="flex items-center border border-slate-300 rounded-lg bg-white px-2.5 py-1.5 focus-within:border-accent-600">
+                <span class="text-slate-400 font-bold mr-1">R$</span>
+                <input type="number" step="0.50" id="cfg_gola" class="w-full font-bold outline-none">
+              </div>
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">Batida Extra / Estampa +:</label>
+              <div class="flex items-center border border-slate-300 rounded-lg bg-white px-2.5 py-1.5 focus-within:border-accent-600">
+                <span class="text-slate-400 font-bold mr-1">R$</span>
+                <input type="number" step="0.50" id="cfg_batida" class="w-full font-bold outline-none">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="border border-slate-200 rounded-2xl p-4">
+          <h4 class="font-bold text-slate-900 text-sm mb-3 flex items-center gap-1.5">
+            <i data-lucide="sparkles" class="w-4 h-4 text-accent-600"></i> Preços de Sublimação
+          </h4>
+          <div class="space-y-2 max-h-56 overflow-y-auto pr-1" id="editSublimacaoContainer">
+          </div>
+        </div>
+
+        <div class="border border-slate-200 rounded-2xl p-4">
+          <h4 class="font-bold text-slate-900 text-sm mb-3 flex items-center gap-1.5">
+            <i data-lucide="printer" class="w-4 h-4 text-indigo-600"></i> Preços de DTF Digital
+          </h4>
+          <div class="space-y-3 max-h-72 overflow-y-auto pr-1" id="editDtfContainer">
+          </div>
+        </div>
+      </div>
+
+      <div class="px-6 py-3 border-t border-slate-200 bg-slate-50 flex flex-wrap items-center justify-between gap-2">
+        <button onclick="restoreFactoryPrices()" class="text-xs font-semibold text-rose-600 hover:text-rose-800 transition-colors">
+          Restaurar Valores Originais de Fábrica
+        </button>
+        <div class="flex items-center gap-2">
+          <button onclick="closeEditPricesModal()" class="px-4 py-2 border border-slate-300 hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-xl transition-colors">
+            Cancelar
+          </button>
+          <button onclick="saveCustomPrices()" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-colors shadow-md shadow-emerald-600/20">
+            Salvar Novos Preços
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: TABELA COMPLETA DE PREÇOS -->
+  <div id="tableModal" class="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm hidden items-center justify-center p-3 md:p-6 overflow-y-auto no-print">
+    <div class="bg-white rounded-3xl max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden">
+      <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+        <div class="flex items-center space-x-2">
+          <div class="p-2 rounded-xl bg-slate-900 text-white">
+            <i data-lucide="table" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-slate-900">Tabela de Preços Ativa</h3>
+            <p class="text-xs text-slate-500">Valores base para pedidos acima de 10 peças (Arte Fixa de R$ 50,00 inclusa)</p>
+          </div>
+        </div>
+        <button onclick="closeTableModal()" class="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="p-6 overflow-y-auto space-y-6" id="viewTableContent">
+      </div>
+
+      <div class="px-6 py-3 border-t border-slate-200 bg-slate-50 flex justify-end">
+        <button onclick="closeTableModal()" class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition-colors">
+          Fechar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: INSTALAR COMO APLICATIVO (PWA NO ANDROID / iOS) -->
+  <div id="installPwaModal" class="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm hidden items-center justify-center p-4 overflow-y-auto no-print">
+    <div class="bg-white rounded-3xl max-w-md w-full flex flex-col shadow-2xl border border-slate-200 overflow-hidden">
+      <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-emerald-50">
+        <div class="flex items-center space-x-2.5">
+          <img src="icon-192.png" alt="Ícone do App" class="w-10 h-10 rounded-xl shadow-sm">
+          <div>
+            <h3 class="font-extrabold text-slate-900 text-sm">Instalar Calculadora no Celular</h3>
+            <p class="text-[11px] text-emerald-800 font-medium">WebApp (PWA) — Funciona igual aplicativo nativo</p>
+          </div>
+        </div>
+        <button onclick="closeInstallPwaModal()" class="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="p-6 space-y-4 text-xs text-slate-700">
+        <!-- Botão de Instalação Direta (aparece quando o navegador Android suporta o disparo automático) -->
+        <div id="directInstallBanner" class="hidden p-4 rounded-2xl bg-emerald-600 text-white space-y-2.5 shadow-md">
+          <div class="font-bold text-sm">Pronto para instalar com 1 toque!</div>
+          <p class="text-[11px] text-emerald-100">O ícone da Calculadora será adicionado direto na tela inicial do seu Android.</p>
+          <button type="button" onclick="triggerNativePwaInstall()" class="w-full py-2.5 px-4 bg-white text-emerald-800 font-extrabold rounded-xl shadow hover:bg-emerald-50 transition-colors">
+            📲 Instalar Aplicativo Agora
+          </button>
+        </div>
+
+        <!-- Passo a Passo Manual para Android (Chrome / Samsung) -->
+        <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+          <div class="font-bold text-slate-900 flex items-center gap-1.5 text-sm">
+            <span>🤖 No Android (Chrome):</span>
+          </div>
+          <ol class="list-decimal list-inside space-y-1.5 text-slate-600 font-medium">
+            <li>Toque nos <strong>3 pontinhos (⋮)</strong> no canto superior direito do Chrome.</li>
+            <li>Toque em <strong>"Instalar aplicativo"</strong> ou <strong>"Adicionar à tela inicial"</strong>.</li>
+            <li>Confirme em <strong>Instalar</strong> — o app aparecerá junto com seus aplicativos!</li>
+          </ol>
+        </div>
+
+        <!-- Passo a Passo para iPhone (Safari) -->
+        <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+          <div class="font-bold text-slate-900 flex items-center gap-1.5 text-sm">
+            <span>🍎 No iPhone (Safari):</span>
+          </div>
+          <ol class="list-decimal list-inside space-y-1.5 text-slate-600 font-medium">
+            <li>Toque no botão <strong>Compartilhar</strong> (quadrado com seta para cima na barra inferior).</li>
+            <li>Role para baixo e toque em <strong>"Adicionar à Tela de Início"</strong>.</li>
+          </ol>
+        </div>
+
+        <p class="text-[11px] text-slate-400 text-center">
+          Dica: Para instalar no celular da equipe, basta hospedar a pasta gratuitamente (ex: Netlify Drop, GitHub Pages ou Vercel) e abrir o link no celular!
+        </p>
+      </div>
+
+      <div class="px-6 py-3 border-t border-slate-200 bg-slate-50 flex justify-end">
+        <button onclick="closeInstallPwaModal()" class="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition-colors">
+          Entendi
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCRIPT LOGIC -->
+  <script>
+    // Valor fixo inalterável da arte
+    const VALOR_ARTE_FIXO = 50.00;
+
+    let activeConfig = null;
+
+    // Mescla de forma segura quaisquer preços salvos no navegador com a estrutura mais recente do arquivo tabela-precos.js
+    function initActiveConfig() {
+      const baseClone = JSON.parse(JSON.stringify(CONFIG_EMPRESA));
+      const savedRaw = localStorage.getItem('empresa_precos_custom');
+      if (savedRaw) {
+        try {
+          const saved = JSON.parse(savedRaw);
+          if (saved.EXTRAS) {
+            baseClone.EXTRAS.manga_unitaria = Number(saved.EXTRAS.manga_unitaria ?? baseClone.EXTRAS.manga_unitaria);
+            baseClone.EXTRAS.gola_e_punho = Number(saved.EXTRAS.gola_e_punho ?? baseClone.EXTRAS.gola_e_punho);
+            baseClone.EXTRAS.batida_extra = Number(saved.EXTRAS.batida_extra ?? baseClone.EXTRAS.batida_extra);
+          }
+          if (Array.isArray(saved.SUBLIMACAO)) {
+            baseClone.SUBLIMACAO.forEach(item => {
+              const found = saved.SUBLIMACAO.find(s => s.id === item.id || (item.id === 'sub_infantil_padrao' && s.id === 'sub_infantil_eucir'));
+              if (found) {
+                item.frente = Number(found.frente ?? item.frente);
+                item.frente_costas = Number(found.frente_costas ?? item.frente_costas);
+              }
+            });
+          }
+          if (Array.isArray(saved.DTF)) {
+            baseClone.DTF.forEach(item => {
+              const found = saved.DTF.find(s => s.id === item.id);
+              if (found) {
+                item.A4_frente = Number(found.A4_frente ?? item.A4_frente);
+                item.A4_frente_costas = Number(found.A4_frente_costas ?? item.A4_frente_costas);
+                if (item.apenasA4) {
+                  item.A3_frente = item.A4_frente;
+                  item.A3_frente_costas = item.A4_frente_costas;
+                } else {
+                  item.A3_frente = Number(found.A3_frente ?? item.A3_frente);
+                  item.A3_frente_costas = Number(found.A3_frente_costas ?? item.A3_frente_costas);
+                }
+              }
+            });
+          }
+        } catch (e) {
+          console.warn('Falha ao ler preços salvos, usando padrão.', e);
+        }
+      }
+      activeConfig = baseClone;
+    }
+
+    // Cria um item de modelo selecionado padrão
+    function createOrderItem(modelId, defaultQty) {
+      return {
+        modelId,
+        qty: defaultQty,
+        useSizes: false,
+        sizes: { P: 0, M: 0, G: 0, GG: 0 },
+        selectedColors: [],
+        colorNotes: ''
+      };
+    }
+
+    // --- ESTADO GLOBAL DA CALCULADORA ---
+    let state = {
+      appType: 'sublimacao', // 'sublimacao' ou 'dtf'
+      printPosition: 'frente', // 'frente' ou 'frente_costas'
+      printSize: 'A4', // 'A4' ou 'A3'
+      currentCategoryFilter: 'all',
+      currentReportNumber: '',
+      itemsByApp: {
+        sublimacao: [createOrderItem('sub_pol_eucir', 20)],
+        dtf: [createOrderItem('dtf_pol_eucir', 20)]
+      },
+      extras: {
+        mangasCount: 0,
+        golaPunho: false,
+        batidaExtra: false
+      }
+    };
+
+    const CATEGORY_LABELS = {
+      all: 'Todas',
+      tradicional: 'Camiseta (P-GG)',
+      baby_look: 'Baby Look',
+      infantil: 'Infantil',
+      xg: 'Plus Size (XG)',
+      manga_longa: 'Manga Longa'
+    };
+
+    const formatBRL = (val) => {
+      return Number(val).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    };
+
+    const escapeHtml = (str) => {
+      return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    };
+
+    function getActiveModelsCatalog() {
+      return state.appType === 'sublimacao' ? activeConfig.SUBLIMACAO : activeConfig.DTF;
+    }
+
+    function getSelectedItemsList() {
+      return state.itemsByApp[state.appType];
+    }
+
+    function isModelForcedA4(model) {
+      return state.appType === 'dtf' && Boolean(model && (model.apenasA4 || model.categoria === 'infantil'));
+    }
+
+    function getBasePriceForModel(model) {
+      if (!model) return 0;
+      if (state.appType === 'sublimacao') {
+        return state.printPosition === 'frente' ? model.frente : model.frente_costas;
+      } else {
+        // Infantil no DTF não comporta arte A3: considera sempre a base A4 4K (-R$ 5) mesmo quando A3 está selecionado
+        const effectiveSize = isModelForcedA4(model) ? 'A4' : state.printSize;
+        const key = `${effectiveSize}_${state.printPosition}`;
+        return model[key] || 0;
+      }
+    }
+
+    function getPaletteForModel(model) {
+      const key = state.appType === 'sublimacao' ? (model.paleta || 'sublimacao') : (model.paleta || 'dtf_eucir');
+      return activeConfig.PALETAS_CORES[key] || activeConfig.PALETAS_CORES.dtf_eucir;
+    }
+
+    function formatSizesDescription(item, model) {
+      if (model.categoria === 'xg') {
+        return `${item.qty} XG`;
+      }
+      if (item.useSizes) {
+        const parts = [];
+        const suffix = model.categoria === 'infantil' ? ' Inf' : (model.categoria === 'baby_look' ? ' Baby' : '');
+        if (item.sizes.P > 0) parts.push(`${item.sizes.P} P${suffix}`);
+        if (item.sizes.M > 0) parts.push(`${item.sizes.M} M${suffix}`);
+        if (item.sizes.G > 0) parts.push(`${item.sizes.G} G${suffix}`);
+        if (item.sizes.GG > 0) parts.push(`${item.sizes.GG} GG${suffix}`);
+        if (parts.length > 0) return parts.join(', ');
+      }
+      return 'P ao GG (a definir)';
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      initActiveConfig();
+      lucide.createIcons();
+      updateDateBadge();
+      loadHistory();
+      renderCategoryFilters();
+      renderModelCards();
+      renderSelectedModelConfigCards();
+      updateCalculations();
+    });
+
+    function updateDateBadge() {
+      const now = new Date();
+      const options = { day: '2-digit', month: 'short' };
+      document.getElementById('currentDateBadge').textContent = now.toLocaleDateString('pt-BR', options);
+    }
+
+    // --- SELEÇÃO DE TIPO DE APLICAÇÃO ---
+    function selectAppType(type) {
+      state.appType = type;
+      state.currentCategoryFilter = 'all';
+
+      const btnSub = document.getElementById('btn-app-sublimacao');
+      const btnDtf = document.getElementById('btn-app-dtf');
+      const sizeNotice = document.getElementById('sublimationSizeNotice');
+      const dtfBadge = document.getElementById('dtfRequiredBadge');
+
+      if (type === 'sublimacao') {
+        btnSub.className = "selection-ring group relative p-4 rounded-xl border-2 text-left cursor-pointer transition-all flex flex-col justify-between border-accent-600 bg-accent-50/50 shadow-sm";
+        btnSub.querySelector('.status-indicator').className = "status-indicator w-5 h-5 rounded-full bg-accent-600 text-white flex items-center justify-center text-xs";
+        btnSub.querySelector('.status-indicator').innerHTML = '<i data-lucide="check" class="w-3.5 h-3.5"></i>';
+
+        btnDtf.className = "selection-ring group relative p-4 rounded-xl border-2 border-slate-200 bg-white hover:border-slate-300 text-left cursor-pointer transition-all flex flex-col justify-between";
+        btnDtf.querySelector('.status-indicator').className = "status-indicator w-5 h-5 rounded-full border border-slate-300 hidden items-center justify-center text-xs";
+        btnDtf.querySelector('.status-indicator').innerHTML = '';
+
+        sizeNotice.classList.remove('hidden');
+        dtfBadge.classList.add('hidden');
+      } else {
+        btnDtf.className = "selection-ring group relative p-4 rounded-xl border-2 text-left cursor-pointer transition-all flex flex-col justify-between border-accent-600 bg-accent-50/50 shadow-sm";
+        btnDtf.querySelector('.status-indicator').className = "status-indicator w-5 h-5 rounded-full bg-accent-600 text-white flex items-center justify-center text-xs";
+        btnDtf.querySelector('.status-indicator').innerHTML = '<i data-lucide="check" class="w-3.5 h-3.5"></i>';
+
+        btnSub.className = "selection-ring group relative p-4 rounded-xl border-2 border-slate-200 bg-white hover:border-slate-300 text-left cursor-pointer transition-all flex flex-col justify-between";
+        btnSub.querySelector('.status-indicator').className = "status-indicator w-5 h-5 rounded-full border border-slate-300 hidden items-center justify-center text-xs";
+        btnSub.querySelector('.status-indicator').innerHTML = '';
+
+        sizeNotice.classList.add('hidden');
+        dtfBadge.classList.remove('hidden');
+      }
+
+      renderCategoryFilters();
+      renderModelCards();
+      renderSelectedModelConfigCards();
+      updateCalculations();
+      lucide.createIcons();
+    }
+
+    function selectPrintPosition(pos) {
+      state.printPosition = pos;
+
+      const btnFrente = document.getElementById('btn-pos-frente');
+      const btnCostas = document.getElementById('btn-pos-frente_costas');
+
+      if (pos === 'frente') {
+        btnFrente.className = "selection-ring p-3.5 rounded-xl border-2 border-accent-600 bg-accent-50/50 flex items-center space-x-3 text-left transition-all";
+        btnFrente.querySelector('div:first-child').className = "w-8 h-8 rounded-lg bg-accent-600 text-white flex items-center justify-center shrink-0";
+
+        btnCostas.className = "selection-ring p-3.5 rounded-xl border-2 border-slate-200 bg-white hover:border-slate-300 flex items-center space-x-3 text-left transition-all";
+        btnCostas.querySelector('div:first-child').className = "w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center shrink-0";
+      } else {
+        btnCostas.className = "selection-ring p-3.5 rounded-xl border-2 border-accent-600 bg-accent-50/50 flex items-center space-x-3 text-left transition-all";
+        btnCostas.querySelector('div:first-child').className = "w-8 h-8 rounded-lg bg-accent-600 text-white flex items-center justify-center shrink-0";
+
+        btnFrente.className = "selection-ring p-3.5 rounded-xl border-2 border-slate-200 bg-white hover:border-slate-300 flex items-center space-x-3 text-left transition-all";
+        btnFrente.querySelector('div:first-child').className = "w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center shrink-0";
+      }
+
+      renderModelCards();
+      renderSelectedModelConfigCards();
+      updateCalculations();
+    }
+
+    function selectPrintSize(size) {
+      state.printSize = size;
+
+      const btnA4 = document.getElementById('btn-size-A4');
+      const btnA3 = document.getElementById('btn-size-A3');
+
+      if (size === 'A4') {
+        btnA4.className = "selection-ring p-3.5 rounded-xl border-2 border-accent-600 bg-accent-50/50 flex items-center space-x-3 text-left transition-all";
+        btnA4.querySelector('div:first-child').className = "w-8 h-8 rounded-lg bg-accent-600 text-white flex items-center justify-center shrink-0 font-bold text-xs";
+
+        btnA3.className = "selection-ring p-3.5 rounded-xl border-2 border-slate-200 bg-white hover:border-slate-300 flex items-center space-x-3 text-left transition-all";
+        btnA3.querySelector('div:first-child').className = "w-8 h-8 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center shrink-0 font-bold text-xs";
+      } else {
+        btnA3.className = "selection-ring p-3.5 rounded-xl border-2 border-accent-600 bg-accent-50/50 flex items-center space-x-3 text-left transition-all";
+        btnA3.querySelector('div:first-child').className = "w-8 h-8 rounded-lg bg-accent-600 text-white flex items-center justify-center shrink-0 font-bold text-xs";
+
+        btnA4.className = "selection-ring p-3.5 rounded-xl border-2 border-slate-200 bg-white hover:border-slate-300 flex items-center space-x-3 text-left transition-all";
+        btnA4.querySelector('div:first-child').className = "w-8 h-8 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center shrink-0 font-bold text-xs";
+      }
+
+      renderModelCards();
+      renderSelectedModelConfigCards();
+      updateCalculations();
+    }
+
+    // --- FILTROS DE CATEGORIA NO PASSO 4 ---
+    function renderCategoryFilters() {
+      const bar = document.getElementById('categoryFilterBar');
+      const catalog = getActiveModelsCatalog();
+      const selectedList = getSelectedItemsList();
+      const availableCategories = ['all'];
+      ['tradicional', 'baby_look', 'infantil', 'xg', 'manga_longa'].forEach(cat => {
+        if (catalog.some(m => m.categoria === cat)) {
+          availableCategories.push(cat);
+        }
+      });
+
+      bar.innerHTML = availableCategories.map(cat => {
+        const isActive = state.currentCategoryFilter === cat;
+        const selectedInCat = cat === 'all'
+          ? selectedList.length
+          : selectedList.filter(it => {
+              const m = catalog.find(x => x.id === it.modelId);
+              return m && m.categoria === cat;
+            }).length;
+
+        const countTag = selectedInCat > 0
+          ? `<span class="ml-1 px-1.5 py-0.2 rounded-full text-[10px] ${
+              isActive ? 'bg-emerald-500 text-white' : 'bg-accent-100 text-accent-700'
+            }">${selectedInCat}</span>`
+          : '';
+
+        return `
+          <button type="button" onclick="filterModelsByCategory('${cat}')"
+            class="px-3 py-1.5 rounded-lg font-semibold shrink-0 transition-all flex items-center ${
+              isActive ? 'bg-slate-900 text-white shadow-sm' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+            }">
+            <span>${CATEGORY_LABELS[cat] || cat}</span>${countTag}
+          </button>
+        `;
+      }).join('');
+    }
+
+    function filterModelsByCategory(category) {
+      state.currentCategoryFilter = category;
+      renderCategoryFilters();
+      renderModelCards();
+    }
+
+    // --- RENDERIZAR CARDS DE MODELO NO PASSO 4 (MÚLTIPLA ESCOLHA) ---
+    function renderModelCards() {
+      const container = document.getElementById('shirtModelsContainer');
+      const catalog = getActiveModelsCatalog();
+      const selectedList = getSelectedItemsList();
+
+      const filtered = state.currentCategoryFilter === 'all'
+        ? catalog
+        : catalog.filter(m => m.categoria === state.currentCategoryFilter);
+
+      const countBadge = document.getElementById('selectedModelsCountBadge');
+      if (selectedList.length === 0) {
+        countBadge.textContent = 'Nenhum modelo marcado';
+        countBadge.className = 'text-[11px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2.5 py-0.5 rounded-full';
+      } else if (selectedList.length === 1) {
+        countBadge.textContent = '1 modelo selecionado (pode marcar +)';
+        countBadge.className = 'text-[11px] font-bold text-accent-700 bg-accent-50 border border-accent-200 px-2.5 py-0.5 rounded-full';
+      } else {
+        countBadge.textContent = `${selectedList.length} modelos combinados!`;
+        countBadge.className = 'text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full';
+      }
+
+      container.innerHTML = filtered.map(model => {
+        const selectedItem = selectedList.find(it => it.modelId === model.id);
+        const isSelected = Boolean(selectedItem);
+        const price = getBasePriceForModel(model);
+        const forcedA4InA3Mode = state.appType === 'dtf' && state.printSize === 'A3' && isModelForcedA4(model);
+
+        return `
+          <button type="button" onclick="toggleModelSelection('${model.id}')"
+            class="selection-ring group p-3.5 rounded-xl border-2 text-left transition-all flex items-center justify-between gap-2.5 ${
+              isSelected
+                ? 'border-accent-600 bg-accent-50/60 shadow-sm ring-1 ring-accent-500/20'
+                : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/60'
+            }">
+            <div class="flex items-start gap-2.5 min-w-0 flex-1">
+              <!-- Checkbox visual -->
+              <div class="mt-0.5 w-5 h-5 rounded-md flex items-center justify-center shrink-0 transition-colors ${
+                isSelected ? 'bg-accent-600 text-white shadow-sm' : 'border-2 border-slate-300 bg-white group-hover:border-accent-400'
+              }">
+                ${isSelected ? '<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>' : ''}
+              </div>
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-1.5 flex-wrap mb-0.5">
+                  <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                    isSelected ? 'bg-accent-600 text-white' : 'bg-slate-100 text-slate-600'
+                  }">${model.tag}</span>
+                  ${isSelected ? `<span id="step4-qty-${model.id}" class="text-[10px] font-extrabold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">${selectedItem.qty} pçs</span>` : ''}
+                </div>
+                <div class="font-bold text-xs text-slate-900 truncate leading-snug">${model.name}</div>
+                ${model.detalhe ? `<div class="text-[10px] text-slate-400 truncate">${model.detalhe}</div>` : ''}
+              </div>
+            </div>
+            <div class="text-right shrink-0">
+              <div class="text-[10px] ${forcedA4InA3Mode ? 'text-amber-600 font-bold' : 'text-slate-400 font-medium'}">${forcedA4InA3Mode ? 'Base A4' : 'Base'}</div>
+              <div class="text-sm font-extrabold ${isSelected ? 'text-accent-700' : 'text-slate-700'}">
+                R$ ${formatBRL(price)}
+              </div>
+            </div>
+          </button>
+        `;
+      }).join('');
+    }
+
+    function toggleModelSelection(modelId) {
+      const list = getSelectedItemsList();
+      const idx = list.findIndex(it => it.modelId === modelId);
+      const catalog = getActiveModelsCatalog();
+      const model = catalog.find(m => m.id === modelId);
+
+      if (idx >= 0) {
+        list.splice(idx, 1);
+      } else {
+        // Se for o primeiro modelo selecionado, inicia com 10 pçs (ou 2 se for XG). Se já houver outro modelo, inicia com 1 pç para facilitar ajuste!
+        let initialQty = 1;
+        if (list.length === 0) {
+          initialQty = (model && model.categoria === 'xg') ? 2 : 10;
+        }
+        list.push(createOrderItem(modelId, initialQty));
+      }
+
+      renderCategoryFilters();
+      renderModelCards();
+      renderSelectedModelConfigCards();
+      updateCalculations();
+    }
+
+    function removeSelectedModel(modelId) {
+      const list = getSelectedItemsList();
+      const idx = list.findIndex(it => it.modelId === modelId);
+      if (idx >= 0) {
+        list.splice(idx, 1);
+        renderCategoryFilters();
+        renderModelCards();
+        renderSelectedModelConfigCards();
+        updateCalculations();
+      }
+    }
+
+    function clearAllSelectedModels() {
+      state.itemsByApp[state.appType] = [];
+      renderCategoryFilters();
+      renderModelCards();
+      renderSelectedModelConfigCards();
+      updateCalculations();
+    }
+
+    // --- RENDERIZAR OS CARDS DETALHADOS NO PASSO 5 (QUANTIDADES, TAMANHOS E CORES POR MODELO) ---
+    function renderSelectedModelConfigCards() {
+      const container = document.getElementById('selectedModelsConfigContainer');
+      const list = getSelectedItemsList();
+      const catalog = getActiveModelsCatalog();
+
+      if (list.length === 0) {
+        container.innerHTML = `
+          <div class="p-6 rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 text-center">
+            <div class="text-sm font-bold text-slate-700 mb-1">Nenhum modelo de camiseta selecionado</div>
+            <p class="text-xs text-slate-500">Clique em 1 ou mais tipos de camiseta no <strong>Passo 4</strong> acima para montar o orçamento.</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = list.map((item) => {
+        const model = catalog.find(m => m.id === item.modelId);
+        if (!model) return '';
+
+        const isXG = model.categoria === 'xg';
+        const basePrice = getBasePriceForModel(model);
+        const palette = getPaletteForModel(model);
+        const forcedA4InA3Mode = state.appType === 'dtf' && state.printSize === 'A3' && isModelForcedA4(model);
+
+        const sizeLabelSuffix = model.categoria === 'infantil' ? ' Inf.' : (model.categoria === 'baby_look' ? ' Baby' : '');
+        const quickPresets = isXG ? [1, 2, 3, 5, 10] : [5, 10, 15, 20, 30];
+
+        return `
+          <div class="p-4 rounded-2xl border-2 border-slate-200/90 bg-slate-50/70 space-y-3.5 shadow-sm">
+            <!-- Header do Modelo -->
+            <div class="flex items-start justify-between gap-2 border-b border-slate-200/80 pb-2.5">
+              <div>
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-white">${model.tag}</span>
+                  <span class="text-[11px] font-semibold text-slate-500">Base${forcedA4InA3Mode ? ' A4' : ''}: R$ ${formatBRL(basePrice)}</span>
+                  ${forcedA4InA3Mode ? `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">Infantil não faz A3 → calculado no A4</span>` : ''}
+                </div>
+                <h4 class="font-extrabold text-sm text-slate-900 mt-1">${model.name}</h4>
+              </div>
+              <div class="flex items-center gap-2 shrink-0">
+                <div class="text-right">
+                  <div class="text-[10px] text-slate-400 font-semibold">Final c/ arte</div>
+                  <div class="text-xs font-extrabold text-emerald-700" id="card-unit-price-${model.id}">R$ 0,00/un</div>
+                </div>
+                <button type="button" onclick="removeSelectedModel('${model.id}')" title="Remover este modelo"
+                  class="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- Quantidade Total deste Modelo + Atalhos -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-white p-3 rounded-xl border border-slate-200">
+              <div>
+                <div class="text-xs font-bold text-slate-800">
+                  ${isXG ? 'Quantidade Plus Size (XG):' : 'Quantidade deste Modelo:'}
+                </div>
+                <div class="text-[11px] text-slate-400" id="size-mode-hint-${model.id}">
+                  ${isXG ? 'Tamanho especial XG' : (item.useSizes ? 'Soma automática da grade P-GG abaixo' : 'Digite o total ou separe por tamanho abaixo')}
+                </div>
+              </div>
+
+              <div class="flex items-center gap-2 flex-wrap">
+                <div class="flex items-stretch border-2 border-slate-200 rounded-xl overflow-hidden bg-white focus-within:border-accent-600">
+                  <button type="button" onclick="adjustModelQty('${model.id}', -1)" class="px-3 bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold text-base border-r border-slate-200">-</button>
+                  <input type="number" min="0" value="${item.qty}" id="qty-input-${model.id}"
+                    oninput="handleModelTotalQtyTyping('${model.id}', this.value)"
+                    class="w-16 text-center font-extrabold text-base text-slate-900 py-1.5 outline-none">
+                  <button type="button" onclick="adjustModelQty('${model.id}', 1)" class="px-3 bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold text-base border-l border-slate-200">+</button>
+                </div>
+
+                <!-- Atalhos rápidos -->
+                <div class="flex items-center gap-1">
+                  ${quickPresets.map(n => `
+                    <button type="button" onclick="setModelQuickQty('${model.id}', ${n})"
+                      class="px-2 py-1 text-[11px] font-bold rounded-md border transition-colors ${
+                        !item.useSizes && item.qty === n ? 'bg-slate-900 text-white border-slate-900' : 'bg-slate-100 hover:bg-slate-200 text-slate-600 border-slate-200'
+                      }">${n}</button>
+                  `).join('')}
+                </div>
+              </div>
+            </div>
+
+            ${!isXG ? `
+              <!-- Grade Opcional por Tamanho (P, M, G, GG) -->
+              <div>
+                <div class="flex items-center justify-between mb-1.5">
+                  <span class="text-[11px] font-bold text-slate-600">Separar por Tamanho (Opcional — P ao GG):</span>
+                  <button type="button" onclick="clearModelSizes('${model.id}')" id="btn-clear-sizes-${model.id}"
+                    class="${item.useSizes ? '' : 'hidden'} text-[10px] font-semibold text-accent-600 hover:text-rose-600">
+                    Limpar grade P-GG
+                  </button>
+                </div>
+                <div class="grid grid-cols-4 gap-2">
+                  ${['P', 'M', 'G', 'GG'].map(sz => `
+                    <div class="bg-white p-1.5 rounded-xl border border-slate-200 text-center">
+                      <label class="block text-[10px] font-bold text-slate-500 mb-1">${sz}${sizeLabelSuffix}</label>
+                      <div class="flex items-center justify-between">
+                        <button type="button" onclick="adjustModelSize('${model.id}', '${sz}', -1)" class="w-6 h-6 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs">-</button>
+                        <input type="number" min="0" value="${item.sizes[sz] || 0}" id="size-${model.id}-${sz}"
+                          oninput="handleModelSizeTyping('${model.id}', '${sz}', this.value)"
+                          class="w-full text-center font-bold text-sm text-slate-900 outline-none bg-transparent">
+                        <button type="button" onclick="adjustModelSize('${model.id}', '${sz}', 1)" class="w-6 h-6 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs">+</button>
+                      </div>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+            ` : ''}
+
+            <!-- Paleta Oficial de Cores EXCLUSIVA deste Modelo -->
+            <div class="pt-2 border-t border-slate-200/80">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-[11px] font-bold text-slate-700 flex items-center gap-1">
+                  🎨 ${palette.titulo}:
+                </span>
+                ${item.selectedColors.length > 0 ? `
+                  <button type="button" onclick="clearModelColors('${model.id}')" class="text-[10px] text-slate-400 hover:text-rose-600 font-semibold">
+                    Limpar cores (${item.selectedColors.length})
+                  </button>
+                ` : '<span class="text-[10px] text-slate-400">Clique para escolher</span>'}
+              </div>
+
+              <div class="flex flex-wrap gap-1.5 items-center">
+                ${palette.cores.map(cor => {
+                  const isColorSelected = item.selectedColors.includes(cor.name);
+                  const borderStyle = cor.border ? 'border-2 border-slate-300' : 'border border-transparent';
+                  return `
+                    <button type="button" onclick="toggleModelColor('${model.id}', '${cor.name}')"
+                      style="background-color: ${cor.bg}; color: ${cor.text};"
+                      class="px-3 py-1.5 rounded-full font-bold text-[11px] shadow-sm transition-all transform active:scale-95 flex items-center gap-1 ${borderStyle} ${
+                        isColorSelected ? 'ring-4 ring-accent-500/50 scale-105 shadow-md font-extrabold' : 'opacity-90 hover:opacity-100'
+                      }">
+                      ${isColorSelected ? '<svg class="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>' : ''}
+                      <span>${cor.name}</span>
+                    </button>
+                  `;
+                }).join('')}
+              </div>
+
+              <div class="mt-2">
+                <input type="text" id="color-notes-${model.id}" value="${item.colorNotes.replace(/"/g, '&quot;')}"
+                  placeholder="Detalhe opcional de cores (ex: 3 Pretas M, 2 Pink G)"
+                  oninput="handleModelColorNotesTyping('${model.id}', this.value)"
+                  class="w-full text-xs font-medium px-3 py-1.5 bg-white border border-slate-200 rounded-lg outline-none focus:border-accent-600">
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // --- MANIPULAÇÃO SEM PERDER FOCO DURANTE A DIGITAÇÃO ---
+    function findSelectedItem(modelId) {
+      return getSelectedItemsList().find(it => it.modelId === modelId);
+    }
+
+    function syncStep4QtyBadge(modelId, qty) {
+      const badge = document.getElementById(`step4-qty-${modelId}`);
+      if (badge) badge.textContent = `${qty} pçs`;
+    }
+
+    function handleModelTotalQtyTyping(modelId, rawVal) {
+      const item = findSelectedItem(modelId);
+      if (!item) return;
+
+      const qty = Math.max(0, parseInt(rawVal) || 0);
+      item.qty = qty;
+      // Ao digitar diretamente no total, reseta a divisão P-GG para "a definir"
+      if (item.useSizes) {
+        item.useSizes = false;
+        item.sizes = { P: 0, M: 0, G: 0, GG: 0 };
+        ['P', 'M', 'G', 'GG'].forEach(sz => {
+          const szInp = document.getElementById(`size-${modelId}-${sz}`);
+          if (szInp) szInp.value = 0;
+        });
+        const hint = document.getElementById(`size-mode-hint-${modelId}`);
+        if (hint) hint.textContent = 'Digite o total ou separe por tamanho abaixo';
+        const clearBtn = document.getElementById(`btn-clear-sizes-${modelId}`);
+        if (clearBtn) clearBtn.classList.add('hidden');
+      }
+
+      syncStep4QtyBadge(modelId, qty);
+      updateCalculations();
+    }
+
+    function adjustModelQty(modelId, delta) {
+      const item = findSelectedItem(modelId);
+      if (!item) return;
+      item.qty = Math.max(0, (item.qty || 0) + delta);
+      item.useSizes = false;
+      item.sizes = { P: 0, M: 0, G: 0, GG: 0 };
+      syncStep4QtyBadge(modelId, item.qty);
+      renderSelectedModelConfigCards();
+      updateCalculations();
+    }
+
+    function setModelQuickQty(modelId, qtyVal) {
+      const item = findSelectedItem(modelId);
+      if (!item) return;
+      item.qty = qtyVal;
+      item.useSizes = false;
+      item.sizes = { P: 0, M: 0, G: 0, GG: 0 };
+      syncStep4QtyBadge(modelId, item.qty);
+      renderSelectedModelConfigCards();
+      updateCalculations();
+    }
+
+    function handleModelSizeTyping(modelId, sz, rawVal) {
+      const item = findSelectedItem(modelId);
+      if (!item) return;
+
+      item.sizes[sz] = Math.max(0, parseInt(rawVal) || 0);
+      const sumSizes = (item.sizes.P || 0) + (item.sizes.M || 0) + (item.sizes.G || 0) + (item.sizes.GG || 0);
+      item.useSizes = sumSizes > 0;
+      item.qty = sumSizes;
+
+      const totalInp = document.getElementById(`qty-input-${modelId}`);
+      if (totalInp) totalInp.value = item.qty;
+
+      const hint = document.getElementById(`size-mode-hint-${modelId}`);
+      if (hint) hint.textContent = item.useSizes ? 'Soma automática da grade P-GG abaixo' : 'Digite o total ou separe por tamanho abaixo';
+
+      const clearBtn = document.getElementById(`btn-clear-sizes-${modelId}`);
+      if (clearBtn) {
+        if (item.useSizes) clearBtn.classList.remove('hidden');
+        else clearBtn.classList.add('hidden');
+      }
+
+      syncStep4QtyBadge(modelId, item.qty);
+      updateCalculations();
+    }
+
+    function adjustModelSize(modelId, sz, delta) {
+      const item = findSelectedItem(modelId);
+      if (!item) return;
+      item.sizes[sz] = Math.max(0, (item.sizes[sz] || 0) + delta);
+      const sumSizes = (item.sizes.P || 0) + (item.sizes.M || 0) + (item.sizes.G || 0) + (item.sizes.GG || 0);
+      item.useSizes = sumSizes > 0;
+      item.qty = sumSizes;
+
+      syncStep4QtyBadge(modelId, item.qty);
+      renderSelectedModelConfigCards();
+      updateCalculations();
+    }
+
+    function clearModelSizes(modelId) {
+      const item = findSelectedItem(modelId);
+      if (!item) return;
+      const keepQty = Math.max(1, item.qty || 10);
+      item.sizes = { P: 0, M: 0, G: 0, GG: 0 };
+      item.useSizes = false;
+      item.qty = keepQty;
+
+      syncStep4QtyBadge(modelId, item.qty);
+      renderSelectedModelConfigCards();
+      updateCalculations();
+    }
+
+    function toggleModelColor(modelId, colorName) {
+      const item = findSelectedItem(modelId);
+      if (!item) return;
+
+      const prevAutoText = item.selectedColors.join(', ');
+      const wasAutoSynced = (item.colorNotes.trim() === '' || item.colorNotes.trim() === prevAutoText);
+
+      const idx = item.selectedColors.indexOf(colorName);
+      if (idx >= 0) {
+        item.selectedColors.splice(idx, 1);
+      } else {
+        item.selectedColors.push(colorName);
+      }
+
+      if (wasAutoSynced) {
+        item.colorNotes = item.selectedColors.join(', ');
+      } else if (idx === -1) {
+        item.colorNotes = `${item.colorNotes}, ${colorName}`;
+      }
+
+      renderSelectedModelConfigCards();
+      updateCalculations();
+    }
+
+    function handleModelColorNotesTyping(modelId, textVal) {
+      const item = findSelectedItem(modelId);
+      if (!item) return;
+      item.colorNotes = textVal;
+      updateCalculations();
+    }
+
+    function clearModelColors(modelId) {
+      const item = findSelectedItem(modelId);
+      if (!item) return;
+      item.selectedColors = [];
+      item.colorNotes = '';
+      renderSelectedModelConfigCards();
+      updateCalculations();
+    }
+
+    // --- CÁLCULO CENTRAL DO ORÇAMENTO (SUPORTA 1 OU MÚLTIPLOS MODELOS) ---
+    function computeCurrentQuote() {
+      const mangasCount = parseInt(document.getElementById('selectMangas').value) || 0;
+      const golaPunho = document.getElementById('checkGolaPunho').checked;
+      const batidaExtra = document.getElementById('checkBatidaExtra').checked;
+
+      state.extras = { mangasCount, golaPunho, batidaExtra };
+
+      const mangaUnitPrice = activeConfig.EXTRAS.manga_unitaria;
+      const golaUnitPrice = activeConfig.EXTRAS.gola_e_punho;
+      const batidaUnitPrice = activeConfig.EXTRAS.batida_extra;
+
+      let extrasPerPiece = 0;
+      const extrasDescriptions = [];
+      if (mangasCount === 1) {
+        extrasPerPiece += mangaUnitPrice;
+        extrasDescriptions.push(`1 Manga (+R$ ${formatBRL(mangaUnitPrice)}/pç)`);
+      } else if (mangasCount === 2) {
+        extrasPerPiece += mangaUnitPrice * 2;
+        extrasDescriptions.push(`2 Mangas (+R$ ${formatBRL(mangaUnitPrice * 2)}/pç)`);
+      }
+      if (golaPunho) {
+        extrasPerPiece += golaUnitPrice;
+        extrasDescriptions.push(`Gola e Punho (+R$ ${formatBRL(golaUnitPrice)}/pç)`);
+      }
+      if (batidaExtra) {
+        extrasPerPiece += batidaUnitPrice;
+        extrasDescriptions.push(`Estampa Extra (+R$ ${formatBRL(batidaUnitPrice)}/pç)`);
+      }
+
+      const catalog = getActiveModelsCatalog();
+      const selectedList = getSelectedItemsList();
+
+      const totalPieces = selectedList.reduce((acc, it) => acc + Math.max(0, it.qty || 0), 0);
+      const artPerPiece = totalPieces > 0 ? (VALOR_ARTE_FIXO / totalPieces) : 0;
+
+      const computedItems = selectedList.map(item => {
+        const model = catalog.find(m => m.id === item.modelId);
+        const basePrice = getBasePriceForModel(model);
+        const unitPrice = totalPieces > 0 ? (artPerPiece + basePrice + extrasPerPiece) : (basePrice + extrasPerPiece);
+        const subtotal = (item.qty || 0) * unitPrice;
+        return {
+          item,
+          model,
+          basePrice,
+          unitPrice,
+          subtotal,
+          sizesText: model ? formatSizesDescription(item, model) : ''
+        };
+      }).filter(entry => Boolean(entry.model));
+
+      const totalOrderPrice = totalPieces > 0
+        ? computedItems.reduce((acc, entry) => acc + entry.subtotal, 0)
+        : 0;
+
+      return {
+        totalPieces,
+        artPerPiece,
+        extrasPerPiece,
+        extrasDescriptions,
+        computedItems,
+        totalOrderPrice
+      };
+    }
+
+    function updateCalculations() {
+      const mangaUnitPrice = activeConfig.EXTRAS.manga_unitaria;
+      const golaUnitPrice = activeConfig.EXTRAS.gola_e_punho;
+      const batidaUnitPrice = activeConfig.EXTRAS.batida_extra;
+
+      document.getElementById('badgePriceMangas').textContent = `+R$ ${formatBRL(mangaUnitPrice)}/cada`;
+      document.getElementById('badgePriceGola').textContent = `+R$ ${formatBRL(golaUnitPrice)}`;
+      document.getElementById('badgePriceBatida').textContent = `+R$ ${formatBRL(batidaUnitPrice)}`;
+
+      const sel = document.getElementById('selectMangas');
+      sel.options[1].text = `1 Manga (+R$ ${formatBRL(mangaUnitPrice)} / pç)`;
+      sel.options[2].text = `2 Mangas (+R$ ${formatBRL(mangaUnitPrice * 2)} / pç)`;
+
+      // Destaque visual dos extras ativos
+      document.getElementById('label-extra-gola').classList.toggle('border-accent-600', document.getElementById('checkGolaPunho').checked);
+      document.getElementById('label-extra-gola').classList.toggle('bg-accent-50/50', document.getElementById('checkGolaPunho').checked);
+      document.getElementById('label-extra-batida').classList.toggle('border-accent-600', document.getElementById('checkBatidaExtra').checked);
+      document.getElementById('label-extra-batida').classList.toggle('bg-accent-50/50', document.getElementById('checkBatidaExtra').checked);
+      document.getElementById('extra-card-mangas').classList.toggle('border-accent-600', parseInt(sel.value) > 0);
+      document.getElementById('extra-card-mangas').classList.toggle('bg-accent-50/50', parseInt(sel.value) > 0);
+
+      const quote = computeCurrentQuote();
+
+      // Atualizar badge de preço final em cada card do Passo 5
+      quote.computedItems.forEach(entry => {
+        const cardBadge = document.getElementById(`card-unit-price-${entry.model.id}`);
+        if (cardBadge) {
+          cardBadge.textContent = `R$ ${formatBRL(entry.unitPrice)}/un`;
+        }
+      });
+
+      // Alerta < 10 peças
+      const minWarn = document.getElementById('minQtyWarning');
+      if (quote.totalPieces > 0 && quote.totalPieces < 10) {
+        minWarn.classList.remove('hidden');
+      } else {
+        minWarn.classList.add('hidden');
+      }
+
+      // Totais no Passo 5
+      const activeModelsCount = quote.computedItems.filter(c => c.item.qty > 0).length;
+      document.getElementById('displayTotalPieces').textContent = quote.totalPieces;
+      document.getElementById('displayTotalModelsLabel').textContent = activeModelsCount > 1
+        ? `peças somadas em ${activeModelsCount} modelos`
+        : 'peças no total';
+      document.getElementById('artPerPieceText').textContent = quote.totalPieces > 0
+        ? `+ R$ ${formatBRL(quote.artPerPiece)} / peça`
+        : 'R$ 50,00 fixo';
+
+      // Card Principal de Resultado (Direita)
+      document.getElementById('displayQtyBadge').textContent = quote.totalPieces;
+      document.getElementById('displayTotalPrice').textContent = formatBRL(quote.totalOrderPrice);
+
+      const singleHero = document.getElementById('singleModelHero');
+      if (quote.computedItems.length === 1 && quote.totalPieces > 0) {
+        singleHero.classList.remove('hidden');
+        document.getElementById('displayHeroUnitPrice').textContent = formatBRL(quote.computedItems[0].unitPrice);
+      } else if (quote.computedItems.length > 1) {
+        // Quando há múltiplos modelos, o preço varia por modelo; esconde o unitário único gigante para destacar a lista por modelo + Total Geral!
+        singleHero.classList.add('hidden');
+      } else {
+        singleHero.classList.remove('hidden');
+        document.getElementById('displayHeroUnitPrice').textContent = '0,00';
+      }
+
+      // Lista de Preço Unitário por Modelo no Card Escuro
+      const breakdownList = document.getElementById('summaryModelsBreakdownList');
+      if (quote.computedItems.length === 0) {
+        breakdownList.innerHTML = `<div class="text-xs text-slate-400 italic py-2">Selecione pelo menos 1 modelo de camiseta.</div>`;
+      } else {
+        breakdownList.innerHTML = quote.computedItems.map(entry => {
+          const isA4Override = state.appType === 'dtf' && state.printSize === 'A3' && isModelForcedA4(entry.model);
+          return `
+          <div class="p-2.5 rounded-xl bg-white/5 border border-white/10 flex items-center justify-between gap-2">
+            <div class="min-w-0 flex-1">
+              <div class="text-xs font-bold text-white truncate">${entry.model.name}</div>
+              <div class="text-[10px] text-slate-400 truncate">
+                ${entry.item.qty} pçs • Base${isA4Override ? ' A4' : ''} R$ ${formatBRL(entry.basePrice)}
+                ${entry.item.colorNotes ? ` • ${escapeHtml(entry.item.colorNotes)}` : ''}
+              </div>
+            </div>
+            <div class="text-right shrink-0">
+              <div class="text-sm font-extrabold text-emerald-400">R$ ${formatBRL(entry.unitPrice)} <span class="text-[10px] font-normal text-slate-400">/un</span></div>
+              <div class="text-[10px] text-slate-300 font-semibold">Sub: R$ ${formatBRL(entry.subtotal)}</div>
+            </div>
+          </div>
+          `;
+        }).join('');
+      }
+
+      // Diluição da arte e extras
+      document.getElementById('breakdownArtCalc').textContent = quote.totalPieces > 0 ? `R$ 50 ÷ ${quote.totalPieces} pçs` : 'R$ 50 fixo';
+      document.getElementById('breakdownArtPrice').textContent = quote.totalPieces > 0 ? `+ R$ ${formatBRL(quote.artPerPiece)} /un` : 'R$ 0,00';
+
+      const extrasRow = document.getElementById('breakdownExtrasRow');
+      if (quote.extrasPerPiece > 0) {
+        extrasRow.classList.remove('hidden');
+        document.getElementById('breakdownExtrasPrice').textContent = `+ R$ ${formatBRL(quote.extrasPerPiece)} /un`;
+      } else {
+        extrasRow.classList.add('hidden');
+      }
+
+      // Fórmula explicativa
+      const formulaEl = document.getElementById('breakdownFormula');
+      if (quote.totalPieces === 0 || quote.computedItems.length === 0) {
+        formulaEl.textContent = '50 / Qtd + Camisa = Unitário';
+      } else if (quote.computedItems.length === 1) {
+        const c = quote.computedItems[0];
+        let f = `50 / ${quote.totalPieces} + ${formatBRL(c.basePrice)}`;
+        if (quote.extrasPerPiece > 0) f += ` + ${formatBRL(quote.extrasPerPiece)}`;
+        f += ` = R$ ${formatBRL(c.unitPrice)}`;
+        formulaEl.textContent = f;
+      } else {
+        let f = `(50 ÷ ${quote.totalPieces} = R$ ${formatBRL(quote.artPerPiece)}/un) + Base de cada camisa`;
+        if (quote.extrasPerPiece > 0) f += ` + R$ ${formatBRL(quote.extrasPerPiece)}`;
+        formulaEl.textContent = f;
+      }
+
+      // Mobile Sticky Bar
+      document.getElementById('mobTotalPrice').textContent = formatBRL(quote.totalOrderPrice);
+      document.getElementById('mobQtyText').textContent = quote.totalPieces;
+    }
+
+    // --- COPIAR ORÇAMENTO FORMATADO PARA WHATSAPP ---
+    function copyWhatsAppBudget() {
+      const quote = computeCurrentQuote();
+      const validItems = quote.computedItems.filter(c => c.item.qty > 0);
+
+      if (validItems.length === 0) {
+        showToast('Atenção', 'Adicione pelo menos 1 peça para copiar o orçamento.');
+        return;
+      }
+
+      const appName = state.appType === 'sublimacao' ? 'Sublimação' : 'DTF Digital';
+      const posName = state.printPosition === 'frente' ? 'Só Frente ou Costas' : 'Frente e Costas';
+      let sizeName = '';
+      if (state.appType === 'dtf') {
+        const hasForcedA4 = validItems.some(e => isModelForcedA4(e.model));
+        const allForcedA4 = validItems.every(e => isModelForcedA4(e.model));
+        if (state.printSize === 'A3' && allForcedA4) {
+          sizeName = ' (A4 — Infantil)';
+        } else if (state.printSize === 'A3' && hasForcedA4) {
+          sizeName = ' (A3 / Infantil em A4)';
+        } else {
+          sizeName = ` (${state.printSize})`;
+        }
+      }
+
+      let text = `*ORÇAMENTO DE CAMISETAS PERSONALIZADAS*\n`;
+      text += `━━━━━━━━━━━━━━━━━━━━━\n`;
+      text += `*Aplicação:* ${appName}\n`;
+      text += `*Estampa:* ${posName}${sizeName}\n`;
+      text += `━━━━━━━━━━━━━━━━━━━━━\n`;
+      text += `*ITENS DO PEDIDO:*\n\n`;
+
+      validItems.forEach(entry => {
+        const itemPrintNote = (state.appType === 'dtf' && state.printSize === 'A3' && isModelForcedA4(entry.model)) ? ' [Estampa A4]' : '';
+        text += `• *${entry.model.name}*${itemPrintNote}\n`;
+        text += `  Qtd: ${entry.item.qty} pçs (${entry.sizesText})\n`;
+        if (entry.item.colorNotes && entry.item.colorNotes.trim() !== '') {
+          text += `  Cores: ${entry.item.colorNotes.trim()}\n`;
+        }
+        text += `  Valor: R$ ${formatBRL(entry.unitPrice)} cada (Subtotal: R$ ${formatBRL(entry.subtotal)})\n\n`;
+      });
+
+      if (quote.extrasDescriptions.length > 0) {
+        text += `*Extras inclusos:* ${quote.extrasDescriptions.join(', ')}\n`;
+      }
+
+      text += `━━━━━━━━━━━━━━━━━━━━━\n`;
+      text += `*TOTAL DE PEÇAS:* ${quote.totalPieces} unidades\n`;
+      text += `*VALOR TOTAL:* R$ ${formatBRL(quote.totalOrderPrice)}\n`;
+      text += `━━━━━━━━━━━━━━━━━━━━━\n`;
+      text += `_Arte inclusa (R$ 50,00 diluído no pedido)_\n`;
+      text += `Orçamento válido por 7 dias. Qualquer dúvida estamos à disposição!`;
+
+      navigator.clipboard.writeText(text).then(() => {
+        showToast('Orçamento Copiado!', 'Cole a mensagem pronta no WhatsApp do cliente.');
+      }).catch(() => {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        showToast('Orçamento Copiado!', 'Cole a mensagem pronta no WhatsApp do cliente.');
+      });
+    }
+
+    // --- MODAL DE RELATÓRIO DO ORÇAMENTO (PDF / IMAGEM) ---
+    function openReportModal() {
+      const quote = computeCurrentQuote();
+      if (quote.totalPieces === 0) {
+        showToast('Atenção', 'Selecione ao menos 1 modelo com quantidade maior que zero.');
+        return;
+      }
+
+      const now = new Date();
+      state.currentReportNumber = `#ORC-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${Math.floor(100 + Math.random() * 900)}`;
+
+      updateReportPreview();
+      const modal = document.getElementById('reportModal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeReportModal() {
+      const modal = document.getElementById('reportModal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function updateReportPreview() {
+      const clientName = document.getElementById('reportClientName').value.trim() || 'Cliente Balcão';
+      const clientPhone = document.getElementById('reportClientPhone').value.trim() || 'Não informado';
+
+      document.getElementById('repDisplayClient').textContent = clientName;
+      document.getElementById('repDisplayPhone').textContent = clientPhone;
+
+      const now = new Date();
+      document.getElementById('repBudgetDate').textContent = now.toLocaleDateString('pt-BR');
+      document.getElementById('repBudgetNumber').textContent = state.currentReportNumber || '#ORC-2026';
+
+      const quote = computeCurrentQuote();
+      const validItems = quote.computedItems.filter(c => c.item.qty > 0);
+
+      const appName = state.appType === 'sublimacao' ? 'Sublimação' : 'DTF Digital';
+      const posName = state.printPosition === 'frente' ? 'Só Frente ou Costas' : 'Frente e Costas';
+      let printSizeLabel = 'Estampa Padrão Sublimação (A4)';
+      if (state.appType === 'dtf') {
+        const hasForcedA4 = validItems.some(e => isModelForcedA4(e.model));
+        const allForcedA4 = validItems.length > 0 && validItems.every(e => isModelForcedA4(e.model));
+        if (state.printSize === 'A3' && allForcedA4) {
+          printSizeLabel = 'Estampa Formato A4 (Padrão Infantil)';
+        } else if (state.printSize === 'A3' && hasForcedA4) {
+          printSizeLabel = 'Estampa Formato A3 (Infantil em A4)';
+        } else {
+          printSizeLabel = `Estampa Formato ${state.printSize}`;
+        }
+      }
+
+      document.getElementById('repDisplayTechnique').textContent = `${appName} • ${posName}`;
+      document.getElementById('repDisplayPrintSize').textContent = printSizeLabel;
+
+      const tbody = document.getElementById('repItemsTableBody');
+      tbody.innerHTML = validItems.map(entry => {
+        const palette = getPaletteForModel(entry.model);
+        const isA4Override = state.appType === 'dtf' && state.printSize === 'A3' && isModelForcedA4(entry.model);
+        // Monta bolinhas coloridas das cores oficiais marcadas
+        const colorSwatchesHTML = entry.item.selectedColors.map(cName => {
+          const foundColor = palette.cores.find(c => c.name === cName);
+          const bgHex = foundColor ? foundColor.bg : '#64748b';
+          const borderCls = (foundColor && foundColor.border) ? 'border border-slate-400' : '';
+          return `<span class="inline-flex items-center gap-1 mr-1.5"><span style="background-color: ${bgHex};" class="inline-block w-2.5 h-2.5 rounded-full ${borderCls}"></span><span>${cName}</span></span>`;
+        }).join('');
+
+        let colorLineHTML = '';
+        const trimmedNotes = (entry.item.colorNotes || '').trim();
+        const autoJoined = entry.item.selectedColors.join(', ');
+        if (entry.item.selectedColors.length > 0) {
+          colorLineHTML = `<div class="text-[11px] text-slate-600 mt-1 flex flex-wrap items-center gap-y-0.5">${colorSwatchesHTML}</div>`;
+          if (trimmedNotes !== '' && trimmedNotes !== autoJoined) {
+            colorLineHTML += `<div class="text-[10px] text-indigo-700 font-semibold mt-0.5">${escapeHtml(trimmedNotes)}</div>`;
+          }
+        } else if (trimmedNotes !== '') {
+          colorLineHTML = `<div class="text-[11px] text-indigo-700 font-semibold mt-1">Cores: ${escapeHtml(trimmedNotes)}</div>`;
+        }
+
+        return `
+          <tr>
+            <td class="py-3 px-3 align-top">
+              <div class="font-bold text-slate-900">${entry.model.name}</div>
+              ${entry.model.detalhe ? `<div class="text-[10px] text-slate-400">${entry.model.detalhe}</div>` : ''}
+              ${isA4Override ? `<div class="text-[10px] font-bold text-amber-700 mt-0.5">Estampa A4 (máx. infantil)</div>` : ''}
+            </td>
+            <td class="py-3 px-3 align-top">
+              <div class="font-semibold text-slate-700">${entry.sizesText}</div>
+              ${colorLineHTML}
+            </td>
+            <td class="py-3 px-2 text-center font-bold text-slate-900 align-top">${entry.item.qty}</td>
+            <td class="py-3 px-3 text-right text-slate-700 align-top whitespace-nowrap">R$ ${formatBRL(entry.unitPrice)}</td>
+            <td class="py-3 px-3 text-right font-extrabold text-slate-900 align-top whitespace-nowrap">R$ ${formatBRL(entry.subtotal)}</td>
+          </tr>
+        `;
+      }).join('');
+
+      document.getElementById('repArtSummary').textContent = `R$ 50,00 (R$ ${formatBRL(quote.artPerPiece)}/pç inclusa)`;
+
+      const extrasSummary = document.getElementById('repExtrasSummary');
+      if (quote.extrasDescriptions.length > 0) {
+        extrasSummary.innerHTML = `<span>Opcionais por peça:</span><span class="font-semibold text-slate-800">${quote.extrasDescriptions.join(' • ')}</span>`;
+      } else {
+        extrasSummary.innerHTML = `<span>Opcionais:</span><span>Nenhum opcional extra</span>`;
+      }
+
+      document.getElementById('repTotalPiecesBadge').textContent = quote.totalPieces;
+      document.getElementById('repTotalOrderPrice').textContent = formatBRL(quote.totalOrderPrice);
+    }
+
+    function printReportPDF() {
+      window.print();
+    }
+
+    function downloadReportImage() {
+      const target = document.getElementById('reportPrintArea');
+      const btn = document.getElementById('btnDownloadImage');
+      
+      const originalText = btn.innerHTML;
+      btn.innerHTML = '<span>Gerando imagem...</span>';
+      btn.disabled = true;
+
+      html2canvas(target, {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        useCORS: true
+      }).then(canvas => {
+        const link = document.createElement('a');
+        link.download = `Orcamento_${(state.currentReportNumber || 'Camisetas').replace('#', '')}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+        showToast('Imagem Baixada!', 'O relatório em PNG foi salvo na sua pasta de Downloads.');
+      }).catch(err => {
+        console.error('Erro ao gerar imagem:', err);
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+        showToast('Erro ao Gerar Imagem', 'Tente usar a opção de Baixar / Imprimir PDF.');
+      });
+    }
+
+    // --- HISTÓRICO LOCALSTORAGE (SALVA E REABRE ORÇAMENTOS COMPLETOS!) ---
+    function saveToHistory() {
+      const quote = computeCurrentQuote();
+      const validItems = quote.computedItems.filter(c => c.item.qty > 0);
+      if (validItems.length === 0) {
+        showToast('Atenção', 'Adicione ao menos 1 modelo com peças antes de salvar.');
+        return;
+      }
+
+      const summaryNames = validItems.map(c => `${c.item.qty}x ${c.model.name}`).join(' + ');
+
+      const item = {
+        id: Date.now(),
+        date: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+        appType: state.appType === 'sublimacao' ? 'Sublimação' : 'DTF',
+        modelName: summaryNames,
+        qty: quote.totalPieces,
+        totalPrice: formatBRL(quote.totalOrderPrice),
+        snapshot: JSON.parse(JSON.stringify({
+          appType: state.appType,
+          printPosition: state.printPosition,
+          printSize: state.printSize,
+          items: state.itemsByApp[state.appType],
+          extras: state.extras
+        }))
+      };
+
+      let history = JSON.parse(localStorage.getItem('budget_history') || '[]');
+      history.unshift(item);
+      if (history.length > 10) history = history.slice(0, 10);
+      localStorage.setItem('budget_history', JSON.stringify(history));
+
+      loadHistory();
+      showToast('Salvo no Histórico!', 'Clique no item salvo a qualquer momento para reabri-lo.');
+    }
+
+    function loadHistory() {
+      const container = document.getElementById('historyList');
+      const history = JSON.parse(localStorage.getItem('budget_history') || '[]');
+
+      if (history.length === 0) {
+        container.innerHTML = '<p class="text-xs text-slate-400 italic text-center py-3">Nenhum orçamento salvo ainda.</p>';
+        return;
+      }
+
+      container.innerHTML = history.map((item, idx) => `
+        <button type="button" onclick="restoreFromHistory(${idx})"
+          class="w-full text-left p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between text-xs hover:bg-accent-50 hover:border-accent-300 transition-colors">
+          <div class="min-w-0 flex-1 pr-2">
+            <div class="font-bold text-slate-800 truncate">${item.modelName}</div>
+            <div class="text-[11px] text-slate-500">${item.appType} • ${item.qty} pçs às ${item.date}</div>
+          </div>
+          <div class="text-right shrink-0">
+            <div class="font-extrabold text-emerald-700">R$ ${item.totalPrice}</div>
+            <div class="text-[10px] text-accent-600 font-semibold">Reabrir ↺</div>
+          </div>
+        </button>
+      `).join('');
+    }
+
+    function restoreFromHistory(idx) {
+      const history = JSON.parse(localStorage.getItem('budget_history') || '[]');
+      const entry = history[idx];
+      if (!entry || !entry.snapshot) return;
+
+      const snap = entry.snapshot;
+      const normalizedItems = [];
+      (snap.items || []).forEach(rawItem => {
+        const cloned = JSON.parse(JSON.stringify(rawItem));
+        if (cloned.modelId === 'dtf_infantil_eucir' || cloned.modelId === 'dtf_infantil_4k') {
+          cloned.modelId = 'dtf_infantil';
+        } else if (cloned.modelId === 'sub_infantil_eucir') {
+          cloned.modelId = 'sub_infantil_padrao';
+        }
+        const existing = normalizedItems.find(x => x.modelId === cloned.modelId);
+        if (existing) {
+          existing.qty = (existing.qty || 0) + (cloned.qty || 0);
+        } else {
+          normalizedItems.push(cloned);
+        }
+      });
+
+      state.itemsByApp[snap.appType] = normalizedItems;
+      document.getElementById('selectMangas').value = snap.extras?.mangasCount || 0;
+      document.getElementById('checkGolaPunho').checked = Boolean(snap.extras?.golaPunho);
+      document.getElementById('checkBatidaExtra').checked = Boolean(snap.extras?.batidaExtra);
+
+      selectAppType(snap.appType);
+      selectPrintPosition(snap.printPosition || 'frente');
+      selectPrintSize(snap.printSize || 'A4');
+      showToast('Orçamento Reaberto!', 'Todos os modelos, tamanhos e cores foram carregados.');
+    }
+
+    function clearHistory() {
+      localStorage.removeItem('budget_history');
+      loadHistory();
+      showToast('Histórico limpo', 'Todos os itens foram removidos.');
+    }
+
+    // --- RESET CALCULATOR ---
+    function resetCalculator() {
+      state.appType = 'sublimacao';
+      state.printPosition = 'frente';
+      state.printSize = 'A4';
+      state.currentCategoryFilter = 'all';
+      state.itemsByApp = {
+        sublimacao: [createOrderItem('sub_pol_eucir', 20)],
+        dtf: [createOrderItem('dtf_pol_eucir', 20)]
+      };
+      state.extras = { mangasCount: 0, golaPunho: false, batidaExtra: false };
+
+      document.getElementById('selectMangas').value = 0;
+      document.getElementById('checkGolaPunho').checked = false;
+      document.getElementById('checkBatidaExtra').checked = false;
+
+      selectAppType('sublimacao');
+      selectPrintPosition('frente');
+      selectPrintSize('A4');
+      showToast('Calculadora reiniciada', 'Valores padrões restaurados.');
+    }
+
+    // --- MODAL DE EDITAR / ATUALIZAR PREÇOS DA EMPRESA ---
+    function openEditPricesModal() {
+      document.getElementById('cfg_manga').value = activeConfig.EXTRAS.manga_unitaria;
+      document.getElementById('cfg_gola').value = activeConfig.EXTRAS.gola_e_punho;
+      document.getElementById('cfg_batida').value = activeConfig.EXTRAS.batida_extra;
+
+      const subContainer = document.getElementById('editSublimacaoContainer');
+      subContainer.innerHTML = activeConfig.SUBLIMACAO.map(item => `
+        <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div class="font-semibold text-slate-800 text-xs">${item.name}</div>
+          <div class="flex items-center gap-3">
+            <div class="flex items-center gap-1">
+              <span class="text-[11px] text-slate-500">Frente: R$</span>
+              <input type="number" step="0.50" id="sub_frente_${item.id}" value="${item.frente}" class="w-16 p-1 border rounded font-bold text-center bg-white">
+            </div>
+            <div class="flex items-center gap-1">
+              <span class="text-[11px] text-slate-500">Frente+Costas: R$</span>
+              <input type="number" step="0.50" id="sub_costas_${item.id}" value="${item.frente_costas}" class="w-16 p-1 border rounded font-bold text-center bg-white">
+            </div>
+          </div>
+        </div>
+      `).join('');
+
+      const dtfContainer = document.getElementById('editDtfContainer');
+      dtfContainer.innerHTML = activeConfig.DTF.map(item => `
+        <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5">
+          <div class="font-bold text-slate-800 text-xs">${item.name} <span class="text-slate-400 font-normal">(${item.detalhe})</span></div>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div class="bg-white p-1.5 border rounded">
+              <span class="text-[10px] text-slate-500 block">A4 Frente</span>
+              <div class="flex items-center">
+                <span class="text-slate-400 text-xs mr-0.5">R$</span>
+                <input type="number" step="0.50" id="dtf_A4_frente_${item.id}" value="${item.A4_frente}" class="w-full font-bold text-xs outline-none">
+              </div>
+            </div>
+            <div class="bg-white p-1.5 border rounded">
+              <span class="text-[10px] text-slate-500 block">A4 Frente+Costas</span>
+              <div class="flex items-center">
+                <span class="text-slate-400 text-xs mr-0.5">R$</span>
+                <input type="number" step="0.50" id="dtf_A4_frente_costas_${item.id}" value="${item.A4_frente_costas}" class="w-full font-bold text-xs outline-none">
+              </div>
+            </div>
+            ${item.apenasA4 ? `
+              <div class="col-span-2 bg-amber-50/80 border border-amber-200 rounded p-2 flex items-center text-[10px] text-amber-800 font-semibold">
+                Não faz estampa A3 no Infantil DTF — usa sempre os valores A4 ao lado mesmo se o cliente marcar A3.
+              </div>
+            ` : `
+              <div class="bg-white p-1.5 border rounded">
+                <span class="text-[10px] text-slate-500 block">A3 Frente</span>
+                <div class="flex items-center">
+                  <span class="text-slate-400 text-xs mr-0.5">R$</span>
+                  <input type="number" step="0.50" id="dtf_A3_frente_${item.id}" value="${item.A3_frente}" class="w-full font-bold text-xs outline-none">
+                </div>
+              </div>
+              <div class="bg-white p-1.5 border rounded">
+                <span class="text-[10px] text-slate-500 block">A3 Frente+Costas</span>
+                <div class="flex items-center">
+                  <span class="text-slate-400 text-xs mr-0.5">R$</span>
+                  <input type="number" step="0.50" id="dtf_A3_frente_costas_${item.id}" value="${item.A3_frente_costas}" class="w-full font-bold text-xs outline-none">
+                </div>
+              </div>
+            `}
+          </div>
+        </div>
+      `).join('');
+
+      const modal = document.getElementById('editPricesModal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeEditPricesModal() {
+      const modal = document.getElementById('editPricesModal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function saveCustomPrices() {
+      activeConfig.EXTRAS.manga_unitaria = parseFloat(document.getElementById('cfg_manga').value) || 5;
+      activeConfig.EXTRAS.gola_e_punho = parseFloat(document.getElementById('cfg_gola').value) || 3;
+      activeConfig.EXTRAS.batida_extra = parseFloat(document.getElementById('cfg_batida').value) || 4;
+
+      activeConfig.SUBLIMACAO.forEach(item => {
+        const inpFrente = document.getElementById(`sub_frente_${item.id}`);
+        const inpCostas = document.getElementById(`sub_costas_${item.id}`);
+        if (inpFrente) item.frente = parseFloat(inpFrente.value) || 0;
+        if (inpCostas) item.frente_costas = parseFloat(inpCostas.value) || 0;
+      });
+
+      activeConfig.DTF.forEach(item => {
+        const inA4F = document.getElementById(`dtf_A4_frente_${item.id}`);
+        const inA4FC = document.getElementById(`dtf_A4_frente_costas_${item.id}`);
+        const inA3F = document.getElementById(`dtf_A3_frente_${item.id}`);
+        const inA3FC = document.getElementById(`dtf_A3_frente_costas_${item.id}`);
+        if (inA4F) item.A4_frente = parseFloat(inA4F.value) || 0;
+        if (inA4FC) item.A4_frente_costas = parseFloat(inA4FC.value) || 0;
+        if (item.apenasA4) {
+          item.A3_frente = item.A4_frente;
+          item.A3_frente_costas = item.A4_frente_costas;
+        } else {
+          if (inA3F) item.A3_frente = parseFloat(inA3F.value) || 0;
+          if (inA3FC) item.A3_frente_costas = parseFloat(inA3FC.value) || 0;
+        }
+      });
+
+      localStorage.setItem('empresa_precos_custom', JSON.stringify(activeConfig));
+      closeEditPricesModal();
+      renderModelCards();
+      renderSelectedModelConfigCards();
+      updateCalculations();
+      showToast('Preços Atualizados!', 'A calculadora já está utilizando os novos valores.');
+    }
+
+    function restoreFactoryPrices() {
+      if (confirm('Deseja restaurar todos os preços para os valores originais do arquivo tabela-precos.js?')) {
+        localStorage.removeItem('empresa_precos_custom');
+        activeConfig = JSON.parse(JSON.stringify(CONFIG_EMPRESA));
+        closeEditPricesModal();
+        renderModelCards();
+        renderSelectedModelConfigCards();
+        updateCalculations();
+        showToast('Valores Restaurados', 'Todos os preços retornaram ao padrão de fábrica.');
+      }
+    }
+
+    // --- MODAL DE VISUALIZAR TABELA COMPLETA ---
+    function openTableModal() {
+      const container = document.getElementById('viewTableContent');
+      container.innerHTML = `
+        <!-- SEÇÃO SUBLIMAÇÃO -->
+        <div class="border border-slate-200 rounded-2xl overflow-hidden">
+          <div class="bg-slate-900 text-white px-4 py-2.5 font-bold text-sm flex items-center justify-between">
+            <span>Tabela Sublimação (Poliéster Claro)</span>
+            <span class="text-xs text-emerald-400 font-semibold">Acima de 10 peças</span>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-xs text-left">
+              <thead class="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
+                <tr>
+                  <th class="py-2.5 px-4">Modelo / Tipo</th>
+                  <th class="py-2.5 px-4 text-center">Só Frente</th>
+                  <th class="py-2.5 px-4 text-center">Frente e Costas</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100 font-medium">
+                ${activeConfig.SUBLIMACAO.map(m => `
+                  <tr>
+                    <td class="py-2 px-4 font-semibold text-slate-900">${m.name}</td>
+                    <td class="py-2 px-4 text-center text-slate-700">R$ ${formatBRL(m.frente)}</td>
+                    <td class="py-2 px-4 text-center text-slate-700">R$ ${formatBRL(m.frente_costas)}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+          <div class="bg-slate-50 p-3 text-xs text-slate-600 border-t border-slate-200 flex flex-wrap gap-4 font-medium">
+            <span>• Mangas: <strong>(+) R$ ${formatBRL(activeConfig.EXTRAS.manga_unitaria)}/manga</strong></span>
+            <span>• Gola e Punho: <strong>(+) R$ ${formatBRL(activeConfig.EXTRAS.gola_e_punho)}</strong></span>
+            <span>• Batida Extra: <strong>(+) R$ ${formatBRL(activeConfig.EXTRAS.batida_extra)}</strong></span>
+          </div>
+        </div>
+
+        <!-- SEÇÃO DTF -->
+        <div class="border border-slate-200 rounded-2xl overflow-hidden">
+          <div class="bg-indigo-900 text-white px-4 py-2.5 font-bold text-sm flex items-center justify-between">
+            <span>Tabela DTF (Digital Transfer)</span>
+            <span class="text-xs text-indigo-300 font-semibold">Acima de 10 peças</span>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-xs text-left">
+              <thead class="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
+                <tr>
+                  <th class="py-2.5 px-3">Modelo / Tipo</th>
+                  <th class="py-2.5 px-3 text-center">A4 Só Frente</th>
+                  <th class="py-2.5 px-3 text-center">A3 Só Frente</th>
+                  <th class="py-2.5 px-3 text-center">A4 F. e Costas</th>
+                  <th class="py-2.5 px-3 text-center">A3 F. e Costas</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100 font-medium">
+                ${activeConfig.DTF.map(m => `
+                  <tr>
+                    <td class="py-2 px-3 font-semibold text-slate-900">${m.name} <span class="text-slate-400 font-normal">(${m.detalhe})</span></td>
+                    <td class="py-2 px-3 text-center">R$ ${formatBRL(m.A4_frente)}</td>
+                    <td class="py-2 px-3 text-center">${m.apenasA4 ? `<span class="text-amber-700 font-semibold">R$ ${formatBRL(m.A4_frente)}</span><span class="block text-[10px] text-amber-600">(Base A4)</span>` : `R$ ${formatBRL(m.A3_frente)}`}</td>
+                    <td class="py-2 px-3 text-center">R$ ${formatBRL(m.A4_frente_costas)}</td>
+                    <td class="py-2 px-3 text-center">${m.apenasA4 ? `<span class="text-amber-700 font-semibold">R$ ${formatBRL(m.A4_frente_costas)}</span><span class="block text-[10px] text-amber-600">(Base A4)</span>` : `R$ ${formatBRL(m.A3_frente_costas)}`}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+
+      const modal = document.getElementById('tableModal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeTableModal() {
+      const modal = document.getElementById('tableModal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    // --- TOAST NOTIFICATION ---
+    function showToast(title, message) {
+      const toast = document.getElementById('toastNotification');
+      document.getElementById('toastTitle').textContent = title;
+      document.getElementById('toastMessage').textContent = message;
+
+      toast.classList.remove('translate-y-[-120%]', 'opacity-0');
+      toast.classList.add('translate-y-0', 'opacity-100');
+
+      setTimeout(() => {
+        toast.classList.add('translate-y-[-120%]', 'opacity-0');
+        toast.classList.remove('translate-y-0', 'opacity-100');
+      }, 2800);
+    }
+
+    // --- SUPORTE A PWA (INSTALAÇÃO COMO WEBAPP NO ANDROID / iOS / DESKTOP) ---
+    let deferredInstallPrompt = null;
+
+    function isRunningStandalone() {
+      return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || Boolean(navigator && navigator.standalone);
+    }
+
+    function updateInstallPwaUI() {
+      const btn = document.getElementById('btnInstallPwa');
+      const directBanner = document.getElementById('directInstallBanner');
+      if (!btn) return;
+
+      if (isRunningStandalone()) {
+        btn.classList.add('hidden');
+        return;
+      }
+
+      if (directBanner) {
+        if (deferredInstallPrompt) directBanner.classList.remove('hidden');
+        else directBanner.classList.add('hidden');
+      }
+    }
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredInstallPrompt = e;
+      updateInstallPwaUI();
+    });
+
+    window.addEventListener('appinstalled', () => {
+      deferredInstallPrompt = null;
+      closeInstallPwaModal();
+      updateInstallPwaUI();
+      showToast('Aplicativo Instalado!', 'A Calculadora já está disponível na sua tela inicial.');
+    });
+
+    function handleInstallPwaClick() {
+      if (deferredInstallPrompt) {
+        triggerNativePwaInstall();
+      } else {
+        openInstallPwaModal();
+      }
+    }
+
+    function triggerNativePwaInstall() {
+      if (!deferredInstallPrompt) {
+        openInstallPwaModal();
+        return;
+      }
+      deferredInstallPrompt.prompt();
+      deferredInstallPrompt.userChoice.then((choiceResult) => {
+        if (choiceResult.outcome === 'accepted') {
+          deferredInstallPrompt = null;
+          closeInstallPwaModal();
+        }
+        updateInstallPwaUI();
+      });
+    }
+
+    function openInstallPwaModal() {
+      updateInstallPwaUI();
+      const modal = document.getElementById('installPwaModal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeInstallPwaModal() {
+      const modal = document.getElementById('installPwaModal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    // Registra o Service Worker para habilitar instalação PWA no Android e uso offline
+    if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch((err) => {
+          console.warn('Service Worker aviso:', err);
+        });
+      });
+    }
+    updateInstallPwaUI();
+  </script>
+</body>
+</html>
